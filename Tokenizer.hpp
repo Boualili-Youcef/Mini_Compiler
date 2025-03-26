@@ -74,34 +74,7 @@ public:
         return tokens;
     }
 
-    std::string generateAssembly(const std::vector<Token> &tokens) const {
-        std::stringstream assembly;
-        assembly << "global _start\n";
-        assembly << "_start:\n";
-        
-        for (int i = 0; i < tokens.size(); i++) {
-            if (tokens[i].type == TokenType::EXIT) {
-                if (i + 2 < tokens.size() && 
-                    tokens[i+1].type == TokenType::INT_LITERAL && 
-                    tokens[i+2].type == TokenType::SEMICOLON) {
-                    
-                    assembly << "    mov rax, 60\n";  
-                    assembly << "    mov rdi, " << *tokens[i+1].value << "\n"; 
-                    assembly << "    syscall\n";
-                    
-                    i += 2;
-                } else {
-                    std::cerr << "Error: Invalid exit statement syntax at token " << i << std::endl;
-                    return "";
-                }
-            } else {
-                std::cerr << "Error: Unexpected token at position " << i << std::endl;
-                return "";
-            }
-        }
-        
-        return assembly.str();
-    }
+   
 
 private:
     std::string m_input;

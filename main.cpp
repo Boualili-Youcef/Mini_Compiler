@@ -6,16 +6,9 @@
 #include <vector>
 #include <cctype>
 #include "Tokenizer.hpp"
+#include "Parser.hpp"
+#include "Generator.hpp"
 
-std::vector<Token> lexer(const Tokenizer &tokenizer, const std::string &input)
-{
-    return tokenizer.tokenize();
-}
-
-std::string tokens_to_asm(const Tokenizer &tokenizer, const std::vector<Token> &tokens)
-{
-    return tokenizer.generateAssembly(tokens);
-}
 
 int main(int argc, char *argv[])
 {
@@ -46,9 +39,9 @@ int main(int argc, char *argv[])
     file.close();
     std::string content = ss.str();
 
+    // ETape 01: On fait l'annalyse lexicale 
     Tokenizer tokenizer(content);
-
-    std::vector<Token> tokens = lexer(tokenizer, content);
+    std::vector<Token> tokens = tokenizer.tokenize();
 
     std::cout << "Tokens:\n";
     for (const auto &token : tokens)
@@ -56,13 +49,19 @@ int main(int argc, char *argv[])
         std::cout << "Type: " << static_cast<int>(token.type) << ", Value: " << (token.value ? *token.value : "null") << std::endl;
     }
 
-    std::string asm_code = tokens_to_asm(tokenizer, tokens);
-
-    if (asm_code.empty())
+    // ETape 02: On fait l'analyse syntaxique
+    Parser parser(tokens);
+    std::optional<NodeExit> nodeExit = parser.parseExit();
+    if (!nodeExit)
     {
-        std::cerr << "erreur lors de la generation du code asm" << std::endl;
+        std::cerr << "Erreur lors de l'analyse syntaxique" << std::endl;
         return EXIT_FAILURE;
     }
+
+    // ETape 03: On fait la generation du code assembleur
+    Generator generator(*nodeExit);
+    std::string asm_code = generator.generateAssembly();
+
     std::cout << "Le code asm:\n"
               << asm_code << std::endl;
 

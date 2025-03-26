@@ -38,7 +38,7 @@ make
 ## Usage
 
 ```bash
-./compiler "exit 42;"
+./compiler
 ```
 
 This will parse the code "exit 42;" and generate assembly code that exits with status code 42.
