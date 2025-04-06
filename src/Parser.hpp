@@ -66,9 +66,10 @@ enum class ExprType
  */
 enum class StmtType
 {
-    EXIT, // Instruction exit(expr)
-    LET,  // Affectation let var = expr
-    BLOCK // Bloc d'instructions
+    EXIT,  // Instruction exit(expr)
+    LET,   // Affectation let var = expr
+    BLOCK, // Bloc d'instructions
+    IF     // Instruction conditionnelle if(condition) { ... }
 };
 
 /**
@@ -80,7 +81,8 @@ enum class BinaryOpType
     MUL,
     SUB,
     DIV,
-    MOD
+    MOD,
+    EQUAL,
 };
 
 /**
@@ -176,6 +178,17 @@ struct BlockStmt : public Stmt
     StmtType getType() const override { return StmtType::BLOCK; }
 };
 
+struct IfStmt : public Stmt
+{
+    std::shared_ptr<Expr> condition;
+    std::shared_ptr<BlockStmt> thenBranch;
+
+    IfStmt(std::shared_ptr<Expr> condition, std::shared_ptr<BlockStmt> thenBranch)
+        : condition(condition), thenBranch(thenBranch) {}
+
+    StmtType getType() const override { return StmtType::IF; }
+};
+
 /**
  * @brief Programme complet c'est une liste d'instructions donc vecteur de statements
  */
@@ -255,6 +268,10 @@ private:
         {
             return parseBlockStmt();
         }
+        else if (m_position < m_tokens.size() && m_tokens[m_position].type == TokenType::IF)
+        {
+            return parseIfStmt();
+        }
         else
         {
             std::cerr << "Erreur: Instruction non reconnue" << std::endl;
@@ -309,6 +326,47 @@ private:
         m_position++;
         std::cout << toString(expr.value()->getType()) << std::endl;
         return std::make_shared<ExitStmt>(expr.value());
+    }
+
+    /**
+     * @brief Analyse les tokens pour produire une instruction if
+     * @return std::optional<std::shared_ptr<IfStmt>> L'instruction if ou nullopt en cas d'erreur
+     */
+    std::optional<std::shared_ptr<IfStmt>> parseIfStmt()
+    {
+        if (m_position >= m_tokens.size() || m_tokens[m_position].type != TokenType::IF)
+        {
+            std::cerr << "Erreur: Un IF est attendu" << std::endl;
+            return std::nullopt;
+        }
+        m_position++;
+        // Vérifier la parenthèse ouvrante
+        if (m_position >= m_tokens.size() || m_tokens[m_position].type != TokenType::LPARENTHESIS)
+        {
+            std::cerr << "Erreur: Un ( est attendu après le IF" << std::endl;
+            return std::nullopt;
+        }
+        m_position++;
+        // Analyser l'expression
+        auto expr = parseExpression();
+        if (!expr)
+        {
+            return std::nullopt;
+        }
+        // Vérifier la parenthèse fermante
+        if (m_position >= m_tokens.size() || m_tokens[m_position].type != TokenType::RPARENTHESIS)
+        {
+            std::cerr << "Erreur: Un ) est attendu après l'expression" << std::endl;
+            return std::nullopt;
+        }
+        m_position++;
+        // Vérifier le bloc
+        auto block = parseBlockStmt();
+        if (!block)
+        {
+            return std::nullopt;
+        }
+        return std::make_shared<IfStmt>(expr.value(), block.value());
     }
 
     /**
@@ -397,7 +455,7 @@ private:
 
     std::optional<std::shared_ptr<Expr>> parseExpression()
     {
-        return parseAddition();
+        return parseComparison();
     }
 
     std::optional<std::shared_ptr<Expr>> parseAddition()
@@ -448,6 +506,32 @@ private:
         return left;
     }
 
+
+    /**
+     * @brief Analyse les tokens pour produire une expression de comparaison
+     * @return std::optional<std::shared_ptr<Expr>> L'expression de comparaison ou nullopt en cas d'erreur
+     * @note Actuellement, seules les égalités sont gérées
+     *       (ex: a == b).
+     */
+    std::optional<std::shared_ptr<Expr>> parseComparison()
+    {
+        auto left = parseAddition();
+        if (!left)
+            return std::nullopt;
+
+        while (m_position < m_tokens.size() && m_tokens[m_position].type == TokenType::EGAL)
+        {
+            m_position++;
+            auto right = parseAddition();
+            if (!right)
+                return std::nullopt;
+
+            left = std::make_shared<BinaryExpr>(left.value(), BinaryOpType::EQUAL, right.value());
+        }
+
+        return left;
+    }
+
     std::optional<std::shared_ptr<Expr>> parseSemiParenth()
     {
         if (m_position < m_tokens.size())
@@ -484,6 +568,7 @@ private:
         std::cerr << "Erreur: Expression attendue" << std::endl;
         return std::nullopt;
     }
+
     std::vector<Token> m_tokens; ///< Vecteur des tokens à analyser
     size_t m_position;           ///< Position actuelle dans le flux de tokens
 };

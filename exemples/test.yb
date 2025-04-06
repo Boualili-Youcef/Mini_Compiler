@@ -1,8 +1,10 @@
-let x = 10 + 4 % 3 * 2;
-let y = 69;
-
-{
-    let x = 7;
+let x = 10;
+let y = 5;
+if(x == 5+y){
+    let x = 52;
+    if(x == 55 ){
+        exit(52);
+    }
+    exit(69);
 }
-
 exit(x); 

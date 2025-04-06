@@ -44,6 +44,10 @@ std::string toString(TokenType type)
         return "LBRACE";
     case TokenType::RBRACE:
         return "RBRACE";
+    case TokenType::IF:
+        return "IF";
+    case TokenType::EGAL:
+        return "Egalité";
     default:
         return "UNKNOWN";
     }

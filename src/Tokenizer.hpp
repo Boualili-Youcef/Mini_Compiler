@@ -38,6 +38,8 @@ enum class TokenType
     MODULO,       /**< Signe modulo '%' */
     LBRACE,       /**< Accolade gauche '{' */
     RBRACE,       /**< Accolade droite '}' */
+    IF,           /**< Mot clé 'if' */
+    EGAL,         /**< Signe égal '==' */
     UNKNOWN       /**< Token non reconnu */
 };
 
@@ -77,7 +79,8 @@ public:
     {
         const std::unordered_map<std::string, TokenType> keywords = {
             {"exit", TokenType::EXIT},
-            {"let", TokenType::LET}};
+            {"let", TokenType::LET},
+            {"if", TokenType::IF}};
         std::vector<Token> tokens;
         int position = 0;
         while (position < m_input.size())
@@ -127,6 +130,14 @@ public:
             {
                 tokens.push_back({TokenType::RPARENTHESIS, ")"});
                 position++;
+                continue;
+            }
+
+            // ici c'est ==
+            if (m_input[position] == '=' && position + 1 < m_input.size() && m_input[position + 1] == '=')
+            {
+                tokens.push_back({TokenType::EGAL, "=="});
+                position += 2;
                 continue;
             }
 

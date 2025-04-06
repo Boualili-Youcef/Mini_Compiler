@@ -30,7 +30,7 @@ public:
         std::stringstream assembly;
         std::vector<std::unordered_map<std::string, int>> symbolTables;
         symbolTables.push_back({}); // Scope global
-        
+
         int stackOffset = 0;      // Offset de la pile pour les variables
         bool hasExitStmt = false; // Indique si une instruction exit a été trouvée
 
@@ -57,6 +57,9 @@ public:
             case StmtType::BLOCK:
                 generateBlockCode(dynamic_cast<BlockStmt *>(stmt.get()), assembly, symbolTables, stackOffset);
                 break;
+            case StmtType::IF:
+                generateIfCode(dynamic_cast<IfStmt *>(stmt.get()), assembly, symbolTables, stackOffset);
+                break;
             default:
                 assembly << "    ; Instruction non supportée\n";
                 break;
@@ -82,7 +85,7 @@ private:
      * @return L'offset de la variable ou std::nullopt si non trouvée
      */
     std::optional<int> findVariableOffset(const std::string &varName,
-                                         const std::vector<std::unordered_map<std::string, int>> &symbolTables) const
+                                          const std::vector<std::unordered_map<std::string, int>> &symbolTables) const
     {
         // Parcourir du scope le plus interne au plus externe
         for (auto it = symbolTables.rbegin(); it != symbolTables.rend(); ++it)
@@ -104,7 +107,7 @@ private:
      * @note Le résultat est placé dans le registre rax
      */
     void generateExpressionCode(const std::shared_ptr<Expr> &expr, std::stringstream &assembly,
-                               const std::vector<std::unordered_map<std::string, int>> &symbolTables) const
+                                const std::vector<std::unordered_map<std::string, int>> &symbolTables) const
     {
         if (!expr)
             return;
@@ -131,7 +134,7 @@ private:
             {
                 std::string varName = *varExpr->token.value;
                 auto offsetOpt = findVariableOffset(varName, symbolTables);
-                
+
                 if (offsetOpt.has_value())
                 {
                     int offset = offsetOpt.value();
@@ -181,6 +184,11 @@ private:
                     assembly << "    div rcx\n";      // Diviser par rcx, quotient dans rax, reste dans rdx
                     assembly << "    mov rax, rdx\n"; // Copier le reste (modulo) dans rax
                     break;
+                case BinaryOpType::EQUAL:
+                    assembly << "    cmp rax, rbx\n"; // Comparer les deux valeurs
+                    assembly << "    sete al\n";       // Mettre 1 si égal, sinon 0
+                    assembly << "    movzx rax, al\n"; // Étendre le résultat à 64 bits
+                    break;
                 }
             }
             break;
@@ -192,7 +200,7 @@ private:
      * @brief Génère le code pour une instruction exit
      */
     void generateExitCode(const ExitStmt *exitStmt, std::stringstream &assembly,
-                         const std::vector<std::unordered_map<std::string, int>> &symbolTables) const
+                          const std::vector<std::unordered_map<std::string, int>> &symbolTables) const
     {
         // Traiter l'expression
         if (exitStmt && exitStmt->expr)
@@ -213,8 +221,8 @@ private:
      * @brief Génère le code pour une instruction let
      */
     void generateLetCode(const LetStmt *letStmt, std::stringstream &assembly,
-                        std::vector<std::unordered_map<std::string, int>> &symbolTables, 
-                        int &stackOffset) const
+                         std::vector<std::unordered_map<std::string, int>> &symbolTables,
+                         int &stackOffset) const
     {
         if (letStmt && letStmt->expr && letStmt->var.value)
         {
@@ -225,7 +233,7 @@ private:
 
             // Référence au scope actuel (dernier élément du vecteur)
             auto &currentScope = symbolTables.back();
-            
+
             // Allouer de l'espace sur la pile si c'est une nouvelle variable
             if (currentScope.find(varName) == currentScope.end())
             {
@@ -244,33 +252,36 @@ private:
      * @brief Génère le code pour un bloc d'instructions
      */
     void generateBlockCode(const BlockStmt *blockStmt, std::stringstream &assembly,
-                          std::vector<std::unordered_map<std::string, int>> &symbolTables,
-                          int &stackOffset) const
+                           std::vector<std::unordered_map<std::string, int>> &symbolTables,
+                           int &stackOffset) const
     {
         // Marquer le début du bloc avec un commentaire
         assembly << "    ; Début de bloc\n";
-        
+
         // Créer un nouveau scope (table de symboles pour ce bloc)
         symbolTables.push_back({});
         int initialStackOffset = stackOffset;
-        
+
         // Générer le code pour chaque instruction dans le bloc
         for (const auto &stmt : blockStmt->statements)
         {
             switch (stmt->getType())
             {
             case StmtType::EXIT:
-                generateExitCode(dynamic_cast<ExitStmt*>(stmt.get()), assembly, symbolTables);
+                generateExitCode(dynamic_cast<ExitStmt *>(stmt.get()), assembly, symbolTables);
                 break;
             case StmtType::LET:
-                generateLetCode(dynamic_cast<LetStmt*>(stmt.get()), assembly, symbolTables, stackOffset);
+                generateLetCode(dynamic_cast<LetStmt *>(stmt.get()), assembly, symbolTables, stackOffset);
                 break;
             case StmtType::BLOCK:
-                generateBlockCode(dynamic_cast<BlockStmt*>(stmt.get()), assembly, symbolTables, stackOffset);
+                generateBlockCode(dynamic_cast<BlockStmt *>(stmt.get()), assembly, symbolTables, stackOffset);
+                break;
+            case StmtType::IF:
+                generateIfCode(dynamic_cast<IfStmt *>(stmt.get()), assembly, symbolTables, stackOffset);
                 break;
             }
         }
-        
+
         // Restaurer la pile en sortant du bloc (libérer les variables locales)
         if (stackOffset > initialStackOffset)
         {
@@ -278,11 +289,40 @@ private:
             assembly << "    add rsp, " << difference << "\n";
             stackOffset = initialStackOffset;
         }
-        
+
         // Fermer ce scope
         symbolTables.pop_back();
-        
+
         assembly << "    ; Fin de bloc\n";
+    }
+
+    /**
+     * @brief Génère le code pour une instruction if
+     */
+    void generateIfCode(const IfStmt *ifStmt, std::stringstream &assembly,
+                        std::vector<std::unordered_map<std::string, int>> &symbolTables,
+                        int &stackOffset) const
+    {
+        if (!ifStmt || !ifStmt->condition || !ifStmt->thenBranch)
+            return;
+
+        // Générer un label unique pour le saut
+        static int labelCounter = 0;
+        std::string endLabel = ".if_end_" + std::to_string(labelCounter++);
+
+        assembly << "    ; Début du if\n";
+
+        // Évaluer la condition
+        generateExpressionCode(ifStmt->condition, assembly, symbolTables);
+
+        assembly << "    cmp rax, 0\n";
+        assembly << "    je " << endLabel << "\n";
+
+        generateBlockCode(ifStmt->thenBranch.get(), assembly, symbolTables, stackOffset);
+
+        // Label pour la fin du if
+        assembly << endLabel << ":\n";
+        assembly << "    ; Fin du if\n";
     }
 
     /**
