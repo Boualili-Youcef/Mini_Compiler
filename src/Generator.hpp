@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Parser.hpp"
+#include <sstream>
 
 /**
  * @brief Classe responsable de la génération de code assembleur
@@ -13,9 +14,9 @@ class Generator
 public:
     /**
      * @brief Constructeur de la classe Generator
-     * @param root Nœud représentant la racine de l'AST
+     * @param program Programme à compiler (racine de l'AST)
      */
-    Generator(const NodeExit &root) : m_node(root) {}
+    Generator(const Program &program) : m_program(program) {}
 
     /**
      * @brief Génère le code assembleur à partir de l'AST
@@ -26,25 +27,73 @@ public:
         std::stringstream assembly;
         assembly << "global _start\n";
         assembly << "_start:\n";
-        // Vérifier si la valeur existe avant de l'utiliser
-        if (m_node.expression.INT_LITERAL.value)
+
+        // Parcourir toutes les instructions du programme
+        for (const auto &stmt : m_program.statements)
         {
-            assembly << "    mov rax, 60\n";
-            assembly << "    mov rdi, " << *m_node.expression.INT_LITERAL.value << "\n";
-            assembly << "    syscall\n";
+            // Traiter chaque type d'instruction
+            switch (stmt->getType())
+            {
+            case StmtType::EXIT:
+                generateExitCode(dynamic_cast<ExitStmt *>(stmt.get()), assembly);
+                break;
+            case StmtType::LET:
+                // Pour l'instant, les instructions 'let' ne génèrent pas de code
+                // On pourrait les utiliser pour les variables plus tard
+                break;
+            default:
+                // Erreur: type d'instruction non supporté
+                assembly << "    ; Instruction non supportée\n";
+                break;
+            }
         }
-        else
-        {
-            assembly << "    mov rax, 60\n";
-            assembly << "    mov rdi, 1\n";
-            assembly << "    syscall\n";
-        }
+
         return assembly.str();
     }
 
 private:
     /**
-     * @brief Nœud racine de l'AST représentant une instruction de sortie
+     * @brief Génère le code assembleur pour une instruction exit
+     * @param exitStmt Instruction exit à traiter
+     * @param assembly Flux où écrire le code assembleur
      */
-    const NodeExit m_node;
+    void generateExitCode(const ExitStmt *exitStmt, std::stringstream &assembly) const
+    {
+        assembly << "    mov rax, 60\n"; // syscall exit
+
+        // Traiter l'expression
+        if (exitStmt && exitStmt->expr)
+        { // Changé 'value' en 'expr'
+            if (exitStmt->expr->getType() == ExprType::INTEGER)
+            { // Changé 'value' en 'expr'
+                // Cas d'un littéral entier
+                // Je ne vais pas pouvoir utiliser le polymorphisme ici habituelle car je veux faire une separation des taches entre 
+                // le parser et le generator c'est pour ça que je fais un cast ici pas sexy a mon gout mais je pense ca va faire l'affaire
+                auto intExpr = dynamic_cast<IntExpr *>(exitStmt->expr.get()); // Changé 'value' en 'expr'
+                if (intExpr && intExpr->token.value)
+                { // Changé 'value.value' en 'token.value'
+                    assembly << "    mov rdi, " << *intExpr->token.value << "\n";
+                }
+                else
+                {
+                    assembly << "    mov rdi, 0\n"; // Valeur par défaut si problème
+                }
+            }
+            else if (exitStmt->expr->getType() == ExprType::VARIABLE)
+            { // Changé 'value' en 'expr'
+                // Cas d'une variable (non implémenté pour l'instant)
+                assembly << "    mov rdi, 0\n"; // Pour l'instant, valeur par défaut
+            }
+        }
+        else
+        {
+            assembly << "    mov rdi, 1\n"; // Code d'erreur par défaut
+        }
+
+        assembly << "    syscall\n";
+    }
+    /**
+     * @brief Programme à compiler
+     */
+    const Program m_program;
 };

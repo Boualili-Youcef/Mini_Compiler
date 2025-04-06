@@ -11,13 +11,13 @@
 
 /**
  * @brief Point d'entrée principal du compilateur
- * 
+ *
  * Ce programme implémente un compilateur simple qui:
  * 1. Lit le code source d'un fichier
  * 2. Analyse lexicalement le code (tokenization)
  * 3. Effectue l'analyse syntaxique (parsing)
  * 4. Génère du code assembleur correspondant
- * 
+ *
  * @param argc Nombre d'arguments passés au programme
  * @param argv Tableau des arguments passés au programme
  * @return int Code de retour (EXIT_SUCCESS en cas de succès, EXIT_FAILURE sinon)
@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
     file.close();
     std::string content = ss.str();
 
-    // ETape 01: On fait l'annalyse lexicale 
+    // ETape 01: On fait l'annalyse lexicale
     Tokenizer tokenizer(content);
     std::vector<Token> tokens = tokenizer.tokenize();
 
@@ -63,15 +63,15 @@ int main(int argc, char *argv[])
 
     // ETape 02: On fait l'analyse syntaxique
     Parser parser(tokens);
-    std::optional<NodeExit> nodeExit = parser.parseExit();
-    if (!nodeExit)
+    auto program = parser.parse();
+    if (!program)
     {
-        std::cerr << "Erreur lors de l'analyse syntaxique" << std::endl;
+        std::cerr << "Erreur: Impossible d'analyser le programme" << std::endl;
         return EXIT_FAILURE;
     }
 
     // ETape 03: On fait la generation du code assembleur
-    Generator generator(*nodeExit);
+    Generator generator(program.value());
     std::string asm_code = generator.generateAssembly();
 
     std::cout << "Le code asm:\n"
