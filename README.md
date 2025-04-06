@@ -79,7 +79,7 @@ The script will:
 
 ## Future Plans
 
-- Add support for variables and assignments
+- Add support for variables and assignments (DONE ✔️)
 - Implement arithmetic expressions
 - Add control flow statements (if/else, loops)
 - Expand the language syntax

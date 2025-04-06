@@ -24,14 +24,18 @@
 enum class TokenType
 {
     EXIT,         /**< Mot clé 'exit' */
-    LET,         /**< Mot clé 'let' */
+    LET,          /**< Mot clé 'let' */
     INT_LITERAL,  /**< Nombre entier littéral */
     SEMICOLON,    /**< Point-virgule ';' */
     IDENTIFIER,   /**< Identifiant (variable, fonction, etc.) */
     LPARENTHESIS, /**< Parenthèse gauche '(' */
     RPARENTHESIS, /**< Parenthèse droite ')' */
-    EQUAL,       /**< Signe égal '=' */
-
+    EQUAL,        /**< Signe égal '=' */
+    PLUS,         /**< Signe plus '+' */
+    STAR,         /**< Signe étoile '*' */
+    MINUS,        /**< Signe moins '-' */
+    DIVIDE,       /**< Signe division '/' */
+    MODULO,       /**< Signe modulo '%' */
     UNKNOWN       /**< Token non reconnu */
 };
 
@@ -71,8 +75,7 @@ public:
     {
         const std::unordered_map<std::string, TokenType> keywords = {
             {"exit", TokenType::EXIT},
-            {"let", TokenType::LET}
-        };
+            {"let", TokenType::LET}};
         std::vector<Token> tokens;
         int position = 0;
         while (position < m_input.size())
@@ -88,11 +91,14 @@ public:
             if (std::isalpha(m_input[position]) || m_input[position] == '_')
             {
                 std::string identifier = consumeIdentifier(position);
-                
+
                 auto it = keywords.find(identifier);
-                if (it != keywords.end()) {
+                if (it != keywords.end())
+                {
                     tokens.push_back({it->second, identifier});
-                } else {
+                }
+                else
+                {
                     tokens.push_back({TokenType::IDENTIFIER, identifier});
                 }
                 continue;
@@ -129,7 +135,47 @@ public:
                 position++;
                 continue;
             }
+
+            // ici c'est -
+            if (m_input[position] == '-')
+            {
+                tokens.push_back({TokenType::MINUS, "-"});
+                position++;
+                continue;
+            }
+
+            // ici c'est +
+            if (m_input[position] == '+')
+            {
+                tokens.push_back({TokenType::PLUS, "+"});
+                position++;
+                continue;
+            }
+
+            // ici c'est /
+            if (m_input[position] == '/')
+            {
+                tokens.push_back({TokenType::DIVIDE, "/"});
+                position++;
+                continue;
+            }
             
+            // ici c'est %
+            if (m_input[position] == '%')
+            {
+                tokens.push_back({TokenType::MODULO, "%"});
+                position++;
+                continue;
+            }
+
+            // ici c'est *
+            if (m_input[position] == '*')
+            {
+                tokens.push_back({TokenType::STAR, "*"});
+                position++;
+                continue;
+            }
+
             // ici c'est ;
             if (m_input[position] == ';')
             {

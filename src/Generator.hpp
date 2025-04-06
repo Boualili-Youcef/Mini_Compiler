@@ -27,12 +27,13 @@ public:
     {
         std::stringstream assembly;
         std::unordered_map<std::string, int> symbolTable;
-        int stackOffset = 0;
+        int stackOffset = 0;      // Offset de la pile pour les variables
+        bool hasExitStmt = false; // Indique si une instruction exit a été trouvée
 
         assembly << "global _start\n";
         assembly << "section .text\n";
         assembly << "_start:\n";
-        
+
         // Initialisation de la base de pile
         assembly << "    push rbp\n";
         assembly << "    mov rbp, rsp\n";
@@ -40,131 +41,153 @@ public:
         // Parcourir toutes les instructions du programme
         for (const auto &stmt : m_program.statements)
         {
-            // Traiter chaque type d'instruction
             switch (stmt->getType())
             {
             case StmtType::EXIT:
                 generateExitCode(dynamic_cast<ExitStmt *>(stmt.get()), assembly, symbolTable);
+                hasExitStmt = true;
                 break;
             case StmtType::LET:
                 generateLetCode(dynamic_cast<LetStmt *>(stmt.get()), assembly, symbolTable, stackOffset);
                 break;
             default:
-                // Erreur: type d'instruction non supporté
                 assembly << "    ; Instruction non supportée\n";
                 break;
             }
         }
 
-        // En cas d'absence d'instruction exit, ajouter une sortie par défaut
-        assembly << "    mov rax, 60\n";
-        assembly << "    mov rdi, 0\n";
-        assembly << "    syscall\n";
+        // Ajouter une sortie par défaut seulement si aucun exit n'est présent
+        if (!hasExitStmt)
+        {
+            assembly << "    mov rax, 60\n";
+            assembly << "    mov rdi, 0\n";
+            assembly << "    syscall\n";
+        }
 
         return assembly.str();
     }
 
 private:
     /**
-     * @brief Génère le code assembleur pour une instruction exit
-     * @param exitStmt Instruction exit à traiter
+     * @brief Génère le code assembleur pour évaluer une expression
+     * @param expr Expression à évaluer
      * @param assembly Flux où écrire le code assembleur
-     * @param symbolTable Table des symboles contenant les variables et leurs offsets dans la pile
+     * @param symbolTable Table des symboles contenant les variables
+     * @note Le résultat est placé dans le registre rax
      */
-    void generateExitCode(const ExitStmt *exitStmt, std::stringstream &assembly, 
+    void generateExpressionCode(const std::shared_ptr<Expr> &expr, std::stringstream &assembly,
+                                const std::unordered_map<std::string, int> &symbolTable) const
+    {
+        if (!expr)
+            return;
+
+        switch (expr->getType())
+        {
+        case ExprType::INTEGER:
+        {
+            auto intExpr = dynamic_cast<IntExpr *>(expr.get());
+            if (intExpr && intExpr->token.value)
+            {
+                assembly << "    mov rax, " << *intExpr->token.value << "\n";
+            }
+            else
+            {
+                assembly << "    mov rax, 0\n";
+            }
+            break;
+        }
+        case ExprType::VARIABLE:
+        {
+            auto varExpr = dynamic_cast<VarExpr *>(expr.get());
+            if (varExpr && varExpr->token.value)
+            {
+                std::string varName = *varExpr->token.value;
+                if (symbolTable.find(varName) != symbolTable.end())
+                {
+                    int offset = symbolTable.at(varName);
+                    assembly << "    mov rax, [rbp-" << offset << "]\n";
+                }
+                else
+                {
+                    assembly << "    ; Variable non définie: " << varName << "\n";
+                    assembly << "    mov rax, 0\n";
+                }
+            }
+            break;
+        }
+        case ExprType::BINARY:
+        {
+            auto binExpr = dynamic_cast<BinaryExpr *>(expr.get());
+            if (binExpr)
+            {
+                // Parcour de l'arbre gauche
+                // On doit d'abord évaluer l'expression gauche
+                generateExpressionCode(binExpr->droite, assembly, symbolTable);
+                assembly << "    push rax\n"; // Sauvegarder le résultat
+
+                generateExpressionCode(binExpr->gauche, assembly, symbolTable);
+
+                // rax = gauche, récupérer droite dans rbx
+                assembly << "    pop rbx\n";
+
+                switch (binExpr->op)
+                {
+                case BinaryOpType::ADD:
+                    assembly << "    add rax, rbx\n";
+                    break;
+                case BinaryOpType::MUL:
+                    assembly << "    imul rax, rbx\n";
+                    break;
+                case BinaryOpType::SUB:
+                    assembly << "    sub rax, rbx\n";
+                    break;
+                case BinaryOpType::DIV:
+
+                    assembly << "    mov rcx, rbx\n"; // Sauvegarder le diviseur dans rcx
+                    assembly << "    xor rdx, rdx\n"; // Mettre à zéro la partie haute du dividende
+                    assembly << "    div rcx\n";      // Diviser par rcx, résultat dans rax
+                    break;
+
+                case BinaryOpType::MOD:
+                    assembly << "    mov rcx, rbx\n"; // Sauvegarder le diviseur dans rcx
+                    assembly << "    xor rdx, rdx\n"; // Mettre à zéro la partie haute du dividende
+                    assembly << "    div rcx\n";      // Diviser par rcx, quotient dans rax, reste dans rdx
+                    assembly << "    mov rax, rdx\n"; // Copier le reste (modulo) dans rax
+                    break;
+                }
+            }
+            break;
+        }
+        }
+    }
+    void generateExitCode(const ExitStmt *exitStmt, std::stringstream &assembly,
                           const std::unordered_map<std::string, int> &symbolTable) const
     {
-        assembly << "    mov rax, 60\n"; // syscall exit
 
         // Traiter l'expression
         if (exitStmt && exitStmt->expr)
-        { 
-            if (exitStmt->expr->getType() == ExprType::INTEGER)
-            { 
-                // Cas d'un littéral entier
-                auto intExpr = dynamic_cast<IntExpr *>(exitStmt->expr.get()); 
-                if (intExpr && intExpr->token.value)
-                { 
-                    assembly << "    mov rdi, " << *intExpr->token.value << "\n";
-                }
-                else
-                {
-                    assembly << "    mov rdi, 0\n"; // Valeur par défaut si problème
-                }
-            }
-            else if (exitStmt->expr->getType() == ExprType::VARIABLE)
-            { 
-                auto varExpr = dynamic_cast<VarExpr *>(exitStmt->expr.get());
-                if (varExpr && varExpr->token.value)
-                { 
-                    std::string varName = *varExpr->token.value;
-                    if (symbolTable.find(varName) != symbolTable.end())
-                    {
-                        // Récupérer la variable depuis la pile
-                        int offset = symbolTable.at(varName);
-                        assembly << "    mov rdi, [rbp-" << offset << "]\n";
-                    }
-                    else
-                    {
-                        assembly << "    ; Variable non définie: " << varName << "\n";
-                        assembly << "    mov rdi, 0\n";
-                    }
-                }
-                else
-                {
-                    assembly << "    mov rdi, 0\n"; // Valeur par défaut si problème
-                }
-            }
+        {
+            generateExpressionCode(exitStmt->expr, assembly, symbolTable);
+            assembly << "    mov rdi, rax\n";
         }
         else
         {
-            assembly << "    mov rdi, 1\n"; // Code d'erreur par défaut
+            assembly << "    mov rdi, 0\n"; // Code d'erreur par défaut
         }
 
+        assembly << "    mov rax, 60\n"; // syscall exit
         assembly << "    syscall\n";
     }
 
-    /**
-     * @brief Génère le code assembleur pour une instruction let
-     * @param letStmt Instruction let à traiter
-     * @param assembly Flux où écrire le code assembleur
-     * @param symbolTable Table des symboles à mettre à jour
-     * @param stackOffset Offset actuel de la pile, à mettre à jour
-     */
     void generateLetCode(const LetStmt *letStmt, std::stringstream &assembly,
-                        std::unordered_map<std::string, int> &symbolTable, int &stackOffset) const
+                         std::unordered_map<std::string, int> &symbolTable, int &stackOffset) const
     {
         if (letStmt && letStmt->expr && letStmt->var.value)
         {
             std::string varName = *letStmt->var.value;
-            
+
             // Évaluer l'expression et mettre le résultat dans rax
-            if (letStmt->expr->getType() == ExprType::INTEGER)
-            {
-                auto intExpr = dynamic_cast<IntExpr *>(letStmt->expr.get());
-                if (intExpr && intExpr->token.value)
-                {
-                    assembly << "    mov rax, " << *intExpr->token.value << "\n";
-                }
-            }
-            else if (letStmt->expr->getType() == ExprType::VARIABLE)
-            {
-                auto varExpr = dynamic_cast<VarExpr *>(letStmt->expr.get());
-                if (varExpr && varExpr->token.value)
-                {
-                    std::string srcVarName = *varExpr->token.value;
-                    if (symbolTable.find(srcVarName) != symbolTable.end())
-                    {
-                        int srcOffset = symbolTable.at(srcVarName);
-                        assembly << "    mov rax, [rbp-" << srcOffset << "]\n";
-                    }
-                    else
-                    {
-                        assembly << "    ; Variable source non définie: " << srcVarName << "\n";
-                        assembly << "    mov rax, 0\n";
-                    }
-                }
-            }
+            generateExpressionCode(letStmt->expr, assembly, symbolTable);
 
             // Allouer de l'espace sur la pile si c'est une nouvelle variable
             if (symbolTable.find(varName) == symbolTable.end())
@@ -179,7 +202,6 @@ private:
             assembly << "    mov [rbp-" << offset << "], rax\n";
         }
     }
-
     /**
      * @brief Programme à compiler
      */

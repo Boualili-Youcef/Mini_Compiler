@@ -9,6 +9,42 @@
 #include "Parser.hpp"
 #include "Generator.hpp"
 
+// TODO : a deleter
+std::string toString(TokenType type)
+{
+    switch (type)
+    {
+    case TokenType::EXIT:
+        return "EXIT";
+    case TokenType::LET:
+        return "LET";
+    case TokenType::INT_LITERAL:
+        return "INT_LITERAL";
+    case TokenType::SEMICOLON:
+        return "SEMICOLON";
+    case TokenType::IDENTIFIER:
+        return "IDENTIFIER";
+    case TokenType::LPARENTHESIS:
+        return "LPARENTHESIS";
+    case TokenType::RPARENTHESIS:
+        return "RPARENTHESIS";
+    case TokenType::EQUAL:
+        return "EQUAL";
+    case TokenType::PLUS:
+        return "PLUS";
+    case TokenType::STAR:
+        return "MULTIPLY";
+    case TokenType::MINUS:
+        return "MINUS";
+    case TokenType::DIVIDE:
+        return "DIVIDE";
+    case TokenType::MODULO:
+        return "MODULO";
+    default:
+        return "UNKNOWN";
+    }
+}
+
 /**
  * @brief Point d'entrée principal du compilateur
  *
@@ -58,7 +94,7 @@ int main(int argc, char *argv[])
     std::cout << "Tokens:\n";
     for (const auto &token : tokens)
     {
-        std::cout << "Type: " << static_cast<int>(token.type) << ", Value: " << (token.value ? *token.value : "null") << std::endl;
+        std::cout << "Type: " << toString(token.type) << "\t\t" << ", Value: " << (token.value ? *token.value : "null") << std::endl;
     }
 
     // ETape 02: On fait l'analyse syntaxique

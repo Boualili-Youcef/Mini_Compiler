@@ -56,8 +56,9 @@
  */
 enum class ExprType
 {
-    INTEGER, // Littéral entier (ex: 42)
-    VARIABLE // Référence à une variable (ex: count)
+    INTEGER,  // Littéral entier (ex: 42)
+    VARIABLE, // Référence à une variable (ex: count)
+    BINARY    // Expression binaire (ex: a + b)
 };
 
 /**
@@ -67,6 +68,18 @@ enum class StmtType
 {
     EXIT, // Instruction exit(expr)
     LET   // Affectation let var = expr
+};
+
+/**
+ * @brief Types d'opérations binaires supportées
+ */
+enum class BinaryOpType
+{
+    ADD,
+    MUL,
+    SUB,
+    DIV,
+    MOD
 };
 
 /**
@@ -98,6 +111,21 @@ struct VarExpr : public Expr
 
     VarExpr(Token token) : token(token) {}
     ExprType getType() const override { return ExprType::VARIABLE; }
+};
+
+/**
+ * @brief Expression binaire (ex: a + b)
+ */
+struct BinaryExpr : public Expr
+{
+    std::shared_ptr<Expr> gauche;
+    std::shared_ptr<Expr> droite;
+    BinaryOpType op;
+
+    BinaryExpr(std::shared_ptr<Expr> gauche, BinaryOpType op, std::shared_ptr<Expr> droite)
+        : gauche(gauche), droite(droite), op(op) {}
+
+    ExprType getType() const override { return ExprType::BINARY; }
 };
 
 /**
@@ -315,28 +343,98 @@ private:
      * @brief Analyse les tokens pour produire une expression
      * @return std::optional<std::shared_ptr<Expr>> L'expression ou nullopt en cas d'erreur
      */
+
+    // 2 + 5 * 3 + 7
+
     std::optional<std::shared_ptr<Expr>> parseExpression()
     {
-        // Analyser selon le type de token
-        if (m_position < m_tokens.size() && m_tokens[m_position].type == TokenType::INT_LITERAL)
-        {
-            auto intExpr = std::make_shared<IntExpr>(m_tokens[m_position]);
-            m_position++;
-            return intExpr;
-        }
-        else if (m_position < m_tokens.size() && m_tokens[m_position].type == TokenType::IDENTIFIER)
-        {
-            auto varExpr = std::make_shared<VarExpr>(m_tokens[m_position]);
-            m_position++;
-            return varExpr;
-        }
-        else
-        {
-            std::cerr << "Erreur: Expression attendue (INT_LITERAL ou IDENTIFIER) apres la (" << std::endl;
-            return std::nullopt;
-        }
+        return parseAddition();
     }
 
+    std::optional<std::shared_ptr<Expr>> parseAddition()
+    {
+        auto left = parseMultiplication();
+        if (!left)
+            return std::nullopt;
+
+        while (m_position < m_tokens.size() && m_tokens[m_position].type == TokenType::PLUS || m_tokens[m_position].type == TokenType::MINUS)
+        {
+            // Y au Bug marrant ici je le comprend pas tres bien la ca marche mais
+            // si n'utilise pas le operatorType et je met m_position + 1 a la fin ca merde
+            TokenType operatorType = m_tokens[m_position].type;
+            m_position++;
+            auto right = parseMultiplication();
+            if (!right)
+                return std::nullopt;
+
+            if (operatorType == TokenType::MINUS)
+                left = std::make_shared<BinaryExpr>(left.value(), BinaryOpType::SUB, right.value());
+            else if (operatorType == TokenType::PLUS)
+                left = std::make_shared<BinaryExpr>(left.value(), BinaryOpType::ADD, right.value());
+        }
+
+        return left;
+    }
+
+    std::optional<std::shared_ptr<Expr>> parseMultiplication()
+    {
+        auto left = parseSemiParenth();
+        if (!left)
+            return std::nullopt;
+        while (m_position < m_tokens.size() && (m_tokens[m_position].type == TokenType::STAR || m_tokens[m_position].type == TokenType::DIVIDE || m_tokens[m_position].type == TokenType::STAR || m_tokens[m_position].type == TokenType::MODULO))
+        {
+            TokenType operatorType = m_tokens[m_position].type;
+            m_position++;
+            auto right = parseSemiParenth();
+            if (!right)
+                return std::nullopt;
+
+            if (operatorType == TokenType::DIVIDE)
+                left = std::make_shared<BinaryExpr>(left.value(), BinaryOpType::DIV, right.value());
+            else if (operatorType == TokenType::MODULO)
+                left = std::make_shared<BinaryExpr>(left.value(), BinaryOpType::MOD, right.value());
+            else if (operatorType == TokenType::STAR)
+                left = std::make_shared<BinaryExpr>(left.value(), BinaryOpType::MUL, right.value());
+        }
+        return left;
+    }
+
+    std::optional<std::shared_ptr<Expr>> parseSemiParenth()
+    {
+        if (m_position < m_tokens.size())
+        {
+            if (m_tokens[m_position].type == TokenType::INT_LITERAL)
+            {
+                auto intExpr = std::make_shared<IntExpr>(m_tokens[m_position]);
+                m_position++;
+                return intExpr;
+            }
+            else if (m_tokens[m_position].type == TokenType::IDENTIFIER)
+            {
+                auto varExpr = std::make_shared<VarExpr>(m_tokens[m_position]);
+                m_position++;
+                return varExpr;
+            }
+            else if (m_tokens[m_position].type == TokenType::LPARENTHESIS)
+            {
+                m_position++; //  je skip '('
+                auto expr = parseExpression();
+                if (!expr)
+                    return std::nullopt;
+
+                if (m_position >= m_tokens.size() || m_tokens[m_position].type != TokenType::RPARENTHESIS)
+                {
+                    std::cerr << "Erreur: Un ) est attendu" << std::endl;
+                    return std::nullopt;
+                }
+                m_position++; // je skip ')'
+                return expr;
+            }
+        }
+
+        std::cerr << "Erreur: Expression attendue" << std::endl;
+        return std::nullopt;
+    }
     std::vector<Token> m_tokens; ///< Vecteur des tokens à analyser
     size_t m_position;           ///< Position actuelle dans le flux de tokens
 };
