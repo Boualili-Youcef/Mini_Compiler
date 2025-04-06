@@ -9,7 +9,19 @@
 #include "Parser.hpp"
 #include "Generator.hpp"
 
-
+/**
+ * @brief Point d'entrée principal du compilateur
+ * 
+ * Ce programme implémente un compilateur simple qui:
+ * 1. Lit le code source d'un fichier
+ * 2. Analyse lexicalement le code (tokenization)
+ * 3. Effectue l'analyse syntaxique (parsing)
+ * 4. Génère du code assembleur correspondant
+ * 
+ * @param argc Nombre d'arguments passés au programme
+ * @param argv Tableau des arguments passés au programme
+ * @return int Code de retour (EXIT_SUCCESS en cas de succès, EXIT_FAILURE sinon)
+ */
 int main(int argc, char *argv[])
 {
 

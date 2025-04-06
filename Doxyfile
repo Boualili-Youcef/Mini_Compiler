@@ -1,0 +1,10 @@
+PROJECT_NAME           = "Compilateur YB"
+PROJECT_BRIEF          = "Un compilateur simple pour le langage YB"
+OUTPUT_DIRECTORY       = docs/doxygen
+INPUT                  = src include
+OUTPUT_LANGUAGE       = French
+RECURSIVE              = YES
+EXTRACT_ALL            = YES
+GENERATE_LATEX         = NO
+HAVE_DOT               = YES
+UML_LOOK               = YES
