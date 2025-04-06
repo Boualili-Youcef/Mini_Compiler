@@ -36,6 +36,8 @@ enum class TokenType
     MINUS,        /**< Signe moins '-' */
     DIVIDE,       /**< Signe division '/' */
     MODULO,       /**< Signe modulo '%' */
+    LBRACE,       /**< Accolade gauche '{' */
+    RBRACE,       /**< Accolade droite '}' */
     UNKNOWN       /**< Token non reconnu */
 };
 
@@ -159,7 +161,7 @@ public:
                 position++;
                 continue;
             }
-            
+
             // ici c'est %
             if (m_input[position] == '%')
             {
@@ -172,6 +174,22 @@ public:
             if (m_input[position] == '*')
             {
                 tokens.push_back({TokenType::STAR, "*"});
+                position++;
+                continue;
+            }
+
+            // ici c'est {
+            if (m_input[position] == '{')
+            {
+                tokens.push_back({TokenType::LBRACE, "{"});
+                position++;
+                continue;
+            }
+
+            // ici c'est }
+            if (m_input[position] == '}')
+            {
+                tokens.push_back({TokenType::RBRACE, "}"});
                 position++;
                 continue;
             }

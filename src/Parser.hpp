@@ -67,7 +67,8 @@ enum class ExprType
 enum class StmtType
 {
     EXIT, // Instruction exit(expr)
-    LET   // Affectation let var = expr
+    LET,  // Affectation let var = expr
+    BLOCK // Bloc d'instructions
 };
 
 /**
@@ -163,6 +164,19 @@ struct LetStmt : public Stmt
 };
 
 /**
+ * @brief Instruction de type bloc
+ */
+
+struct BlockStmt : public Stmt
+{
+    // C'est un vecteur d'instructions qui vont etre dans le bloc
+    std::vector<std::shared_ptr<Stmt>> statements;
+
+    BlockStmt(std::vector<std::shared_ptr<Stmt>> statements) : statements(statements) {}
+    StmtType getType() const override { return StmtType::BLOCK; }
+};
+
+/**
  * @brief Programme complet c'est une liste d'instructions donc vecteur de statements
  */
 struct Program
@@ -198,30 +212,10 @@ public:
 
         while (m_position < m_tokens.size())
         {
-            // Analyser le type d'instruction
-            // Si on trouve un token de type EXIT:
-            if (m_position < m_tokens.size() && m_tokens[m_position].type == TokenType::EXIT)
-            {
-                auto exitStmt = parseExitStmt();
-                if (!exitStmt)
-                    return std::nullopt;
-                program.addStatement(exitStmt.value());
-            }
-            // Si on trouve un token de type LET:
-            else if (m_position < m_tokens.size() && m_tokens[m_position].type == TokenType::LET)
-            {
-                auto letStmt = parseLetStmt();
-                if (!letStmt)
-                    return std::nullopt;
-                program.addStatement(letStmt.value());
-            }
-            else
-            {
-                std::cout << "Token: " << static_cast<int>(m_tokens[m_position].type) << std::endl;
-                std::cout << "Valeur: " << (m_tokens[m_position].value ? *m_tokens[m_position].value : "null") << std::endl;
-                std::cerr << "Erreur: Instruction non reconnue" << std::endl;
+            auto stmt = parseStatement();
+            if (!stmt)
                 return std::nullopt;
-            }
+            program.addStatement(stmt.value());
         }
 
         return program;
@@ -241,6 +235,33 @@ private:
             return "UNKNOWN";
         }
     }
+
+    /**
+     * @brief Analyse une seule instruction
+     * @return std::optional<std::shared_ptr<Stmt>> L'instruction ou nullopt en cas d'erreur
+     */
+    std::optional<std::shared_ptr<Stmt>> parseStatement()
+    {
+        // Analyser le type d'instruction
+        if (m_position < m_tokens.size() && m_tokens[m_position].type == TokenType::EXIT)
+        {
+            return parseExitStmt();
+        }
+        else if (m_position < m_tokens.size() && m_tokens[m_position].type == TokenType::LET)
+        {
+            return parseLetStmt();
+        }
+        else if (m_position < m_tokens.size() && m_tokens[m_position].type == TokenType::LBRACE)
+        {
+            return parseBlockStmt();
+        }
+        else
+        {
+            std::cerr << "Erreur: Instruction non reconnue" << std::endl;
+            return std::nullopt;
+        }
+    }
+
     /**
      * @brief Analyse les tokens pour produire une instruction exit
      * @return std::optional<std::shared_ptr<ExitStmt>> L'instruction exit ou nullopt en cas d'erreur
@@ -337,6 +358,34 @@ private:
         m_position++;
 
         return std::make_shared<LetStmt>(var, expr.value());
+    }
+
+    std::optional<std::shared_ptr<BlockStmt>> parseBlockStmt()
+    {
+        // On vérifie si on a un '{'
+        if (m_position >= m_tokens.size() || m_tokens[m_position].type != TokenType::LBRACE)
+        {
+            std::cerr << "Erreur: Un { est attendu" << std::endl;
+            return std::nullopt;
+        }
+        // hop on récupere toutes les instructions entre les accolades
+        m_position++;
+        std::vector<std::shared_ptr<Stmt>> statements;
+        while (m_position < m_tokens.size() && m_tokens[m_position].type != TokenType::RBRACE)
+        {
+            auto stmt = parseStatement();
+            if (!stmt)
+                return std::nullopt;
+            statements.push_back(stmt.value());
+        }
+        // On vérifie si on a un '}'
+        if (m_position >= m_tokens.size() || m_tokens[m_position].type != TokenType::RBRACE)
+        {
+            std::cerr << "Erreur: Un } est attendu" << std::endl;
+            return std::nullopt;
+        }
+        m_position++;
+        return std::make_shared<BlockStmt>(statements);
     }
 
     /**

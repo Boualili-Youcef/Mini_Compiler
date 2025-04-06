@@ -40,6 +40,10 @@ std::string toString(TokenType type)
         return "DIVIDE";
     case TokenType::MODULO:
         return "MODULO";
+    case TokenType::LBRACE:
+        return "LBRACE";
+    case TokenType::RBRACE:
+        return "RBRACE";
     default:
         return "UNKNOWN";
     }

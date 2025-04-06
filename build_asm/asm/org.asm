@@ -24,6 +24,12 @@ _start:
     mov rax, 69
     sub rsp, 8
     mov [rbp-16], rax
+    ; Début de bloc
+    mov rax, 7
+    sub rsp, 8
+    mov [rbp-24], rax
+    add rsp, 8
+    ; Fin de bloc
     mov rax, [rbp-8]
     mov rdi, rax
     mov rax, 60

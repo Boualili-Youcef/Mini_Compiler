@@ -80,7 +80,8 @@ The script will:
 ## Future Plans
 
 - Add support for variables and assignments (DONE ✔️)
-- Implement arithmetic expressions
+- Implement arithmetic expressions (Done ✔️)
+- Add scopes { } (Done ✔️)
 - Add control flow statements (if/else, loops)
 - Expand the language syntax
 - OOP (if I have time)

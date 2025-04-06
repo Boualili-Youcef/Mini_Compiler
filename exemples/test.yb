@@ -1,3 +1,8 @@
 let x = 10 + 4 % 3 * 2;
 let y = 69;
-exit(x ); 
+
+{
+    let x = 7;
+}
+
+exit(x); 
