@@ -18,19 +18,19 @@ int main(int argc, char *argv[])
     if (argc >= 2)
     {
         filePath = argv[1];
-        std::cout << "Reading file: " << filePath << std::endl;
+        std::cout << "Lecture du fichier: " << filePath << std::endl;
     }
     else
     {
-        filePath = "./test.yb";
-        std::cout << "No file specified, using default: " << filePath << std::endl;
+        filePath = "../exemples/test.yb";
+        std::cout << "Pas de fichier spécifier, utilisation du path par defaut: " << filePath << std::endl;
     }
     // Ouverture du fichier
     std::ifstream file(filePath);
 
     if (!file)
     {
-        std::cerr << "Error opening file: " << filePath << std::endl;
+        std::cerr << "Erreur ouverture du fichier: " << filePath << std::endl;
         return EXIT_FAILURE;
     }
 
@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
     std::cout << "Le code asm:\n"
               << asm_code << std::endl;
 
-    std::ofstream asm_file("./org.asm");
+    std::ofstream asm_file("../build_asm/asm/org.asm");
     if (!asm_file)
     {
         std::cerr << "erreur de creation du fichier " << std::endl;
