@@ -103,10 +103,11 @@ while (start < end) {
     start = start + 1;
     end = end - 1;
 }
+//  je suis le GOAT (￣y▽￣)╭ Ohohoho..... 
 
 // Afficher le tableau inversé
 let i = 0;
 while (i < len(arr)) {
-    print(arr[i]); // Si ca affiche 10, 9, 8, .... je suis le GOAT (￣y▽￣)╭ Ohohoho..... 
+    print(arr[i]); // Si ca affiche 10, 9, 8, ...
     i = i + 1;
 }
