@@ -1,6 +1,8 @@
 let x = 10;
-let y = 5;
-if(x < 2*y - 2){
+/*
+let y = 5; // Hello
+*/
+if((x > 2 || 1+2 > 3) && 25 != 25){
     exit(69);
 }
 else if(1 > 1)

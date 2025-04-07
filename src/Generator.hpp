@@ -209,6 +209,17 @@ private:
                     assembly << "    setle al\n";      // Mettre 1 si rax <= rbx, sinon 0
                     assembly << "    movzx rax, al\n"; // Étendre le résultat à 64 bits
                     break;
+                case BinaryOpType::AND:
+                    assembly << "    and rax, rbx\n"; // Effectuer un ET logique
+                    break;
+                case BinaryOpType::OR:
+                    assembly << "    or rax, rbx\n"; // Effectuer un OU logique
+                    break;
+                case BinaryOpType::NOT_EQUAL:
+                    assembly << "    cmp rax, rbx\n"; // Comparer les deux valeurs
+                    assembly << "    setne al\n";      // Mettre 1 si différent, sinon 0
+                    assembly << "    movzx rax, al\n"; // Étendre le résultat à 64 bits
+                    break;
                 }
             }
             break;

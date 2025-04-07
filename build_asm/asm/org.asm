@@ -6,25 +6,38 @@ _start:
     mov rax, 10
     sub rsp, 8
     mov [rbp-8], rax
-    mov rax, 5
-    sub rsp, 8
-    mov [rbp-16], rax
     ; Début du if
+    mov rax, 25
+    push rax
+    mov rax, 25
+    pop rbx
+    cmp rax, rbx
+    setne al
+    movzx rax, al
+    push rax
+    mov rax, 3
+    push rax
     mov rax, 2
     push rax
-    mov rax, [rbp-16]
+    mov rax, 1
+    pop rbx
+    add rax, rbx
+    pop rbx
+    cmp rax, rbx
+    setg al
+    movzx rax, al
     push rax
     mov rax, 2
-    pop rbx
-    imul rax, rbx
-    pop rbx
-    sub rax, rbx
     push rax
     mov rax, [rbp-8]
     pop rbx
     cmp rax, rbx
-    setl al
+    setg al
     movzx rax, al
+    pop rbx
+    or rax, rbx
+    pop rbx
+    and rax, rbx
     cmp rax, 0
     je .if_else_0
     ; Début de bloc

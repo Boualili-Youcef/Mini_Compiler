@@ -40,11 +40,14 @@ enum class TokenType
     RBRACE,       /**< Accolade droite '}' */
     IF,           /**< Mot clé 'if' */
     EGAL,         /**< Signe égal '==' */
+    NEGAL,       /**< Signe différent '!=' */
     GREAT,        /**< Signe supérieur '>' */
     LESS,         /**< Signe inférieur '<' */
     GREAT_EQUAL,  /**< Signe supérieur ou égal '>=' */
     LESS_EQUAL,   /**< Signe inférieur ou égal '<=' */
     ELSE,         /**< Mot clé 'else' */
+    AND,         /**< Signe && */
+    OR,         /**< Signe || */
     UNKNOWN       /**< Token non reconnu */
 };
 
@@ -98,6 +101,53 @@ public:
                 continue;
             }
 
+            // ici &&
+            if(m_input[position] == '&' && position + 1 < m_input.size() && m_input[position + 1] == '&')
+            {
+                tokens.push_back({TokenType::AND, "&&"});
+                position += 2;
+                continue;
+            }
+            // ici ||
+            if(m_input[position] == '|' && position + 1 < m_input.size() && m_input[position + 1] == '|')
+            {
+                tokens.push_back({TokenType::OR, "||"});
+                position += 2;
+                continue;
+            }
+
+            // ici on doit ignorer les commentaires sur une ligne
+            if (m_input[position] == '/' && position + 1 < m_input.size() && m_input[position + 1] == '/')
+            {
+                while (position < m_input.size() && m_input[position] != '\n')
+                {
+                    position++;
+                }
+                continue;
+            }
+
+            // ici on doit ignorer les commentaires sur plusieurs lignes
+            if(m_input[position] == '/' && position + 1 < m_input.size() && m_input[position + 1] == '*')
+            {
+                bool closed = false;
+                position += 2;
+                while (position < m_input.size() && !(m_input[position] == '*' && position + 1 < m_input.size() && m_input[position + 1] == '/'))
+                {
+                    position++;
+                }
+                if (position < m_input.size())
+                {
+                    position += 2; 
+                    closed = true;
+                }
+                if(!closed){
+                    std::cerr << "Erreur: YOOO WESH ferme le multiligne toi la avec ta grosse clavicie la TSSS !!!!" << std::endl;
+                    position++;
+                }
+
+                continue;
+            }
+
             // si on rencontre un caractere alphabetique ou underscore
             if (std::isalpha(m_input[position]) || m_input[position] == '_')
             {
@@ -143,6 +193,14 @@ public:
             if (m_input[position] == '=' && position + 1 < m_input.size() && m_input[position + 1] == '=')
             {
                 tokens.push_back({TokenType::EGAL, "=="});
+                position += 2;
+                continue;
+            }
+
+            // ici c'est !=
+            if (m_input[position] == '!' && position + 1 < m_input.size() && m_input[position + 1] == '=')
+            {
+                tokens.push_back({TokenType::NEGAL, "!="});
                 position += 2;
                 continue;
             }

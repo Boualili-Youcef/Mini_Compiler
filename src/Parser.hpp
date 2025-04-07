@@ -87,7 +87,10 @@ enum class BinaryOpType
     GREAT,
     LESS,
     GREAT_EQUAL,
-    LESS_EQUAL
+    LESS_EQUAL,
+    AND,
+    OR,
+    NOT_EQUAL,
 };
 
 /**
@@ -514,7 +517,45 @@ private:
 
     std::optional<std::shared_ptr<Expr>> parseExpression()
     {
-        return parseComparison();
+        return parseLogicalConOR();
+    }
+
+    std::optional<std::shared_ptr<Expr>> parseLogicalConOR()
+    {
+        auto left = parseLogicalConAND();
+        if (!left)
+            return std::nullopt;
+
+        while (m_position < m_tokens.size() && (m_tokens[m_position].type == TokenType::OR))
+        {
+            TokenType operatorType = m_tokens[m_position].type;
+            m_position++;
+            auto right = parseLogicalConAND();
+            if (!right)
+                return std::nullopt;
+            left = std::make_shared<BinaryExpr>(left.value(), BinaryOpType::OR, right.value());
+        }
+
+        return left;
+    }
+
+    std::optional<std::shared_ptr<Expr>> parseLogicalConAND()
+    {
+        auto left = parseComparison();
+        if (!left)
+            return std::nullopt;
+
+        while (m_position < m_tokens.size() && (m_tokens[m_position].type == TokenType::AND))
+        {
+            TokenType operatorType = m_tokens[m_position].type;
+            m_position++;
+            auto right = parseComparison();
+            if (!right)
+                return std::nullopt;
+            left = std::make_shared<BinaryExpr>(left.value(), BinaryOpType::AND, right.value());
+        }
+
+        return left;
     }
 
     /**
@@ -586,7 +627,7 @@ private:
         if (!left)
             return std::nullopt;
 
-        while (m_position < m_tokens.size() && (m_tokens[m_position].type == TokenType::EGAL || m_tokens[m_position].type == TokenType::GREAT || m_tokens[m_position].type == TokenType::LESS || m_tokens[m_position].type == TokenType::GREAT_EQUAL || m_tokens[m_position].type == TokenType::LESS_EQUAL))
+        while (m_position < m_tokens.size() && (m_tokens[m_position].type == TokenType::EGAL || m_tokens[m_position].type == TokenType::GREAT || m_tokens[m_position].type == TokenType::LESS || m_tokens[m_position].type == TokenType::GREAT_EQUAL || m_tokens[m_position].type == TokenType::LESS_EQUAL || m_tokens[m_position].type == TokenType::NEGAL))
         {
             TokenType operatorType = m_tokens[m_position].type;
             m_position++;
@@ -601,6 +642,13 @@ private:
                 binaryOpType = BinaryOpType::GREAT_EQUAL;
             else if (operatorType == TokenType::LESS_EQUAL)
                 binaryOpType = BinaryOpType::LESS_EQUAL;
+            else if (operatorType == TokenType::NEGAL)
+                binaryOpType = BinaryOpType::NOT_EQUAL;
+            else
+            {
+                std::cerr << "Erreur: Opérateur de comparaison non reconnu" << std::endl;
+                return std::nullopt;
+            }
             auto right = parseAddition();
             if (!right)
                 return std::nullopt;

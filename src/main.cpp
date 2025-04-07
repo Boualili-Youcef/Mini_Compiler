@@ -58,6 +58,12 @@ std::string toString(TokenType type)
         return "LESS_EQUAL";
     case TokenType::ELSE:
         return "ELSE";
+    case TokenType::AND:
+        return "AND";
+    case TokenType::OR:
+        return "OR";
+    case TokenType::NEGAL:
+        return "NEGAL";
     default:
         return "UNKNOWN";
     }
