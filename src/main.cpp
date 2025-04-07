@@ -64,6 +64,18 @@ std::string toString(TokenType type)
         return "OR";
     case TokenType::NEGAL:
         return "NEGAL";
+    case TokenType::LBRACKET:
+        return "LBRACKET";
+    case TokenType::RBRACKET:
+        return "RBRACKET";
+    case TokenType::COMMA:
+        return "COMMA";
+    case TokenType::WHILE:
+        return "WHILE";
+    case TokenType::PRINT:
+        return "PRINT";
+    case TokenType::LENGTH:
+        return "LENGTH";
     default:
         return "UNKNOWN";
     }

@@ -56,9 +56,13 @@
  */
 enum class ExprType
 {
-    INTEGER,  // Littéral entier (ex: 42)
-    VARIABLE, // Référence à une variable (ex: count)
-    BINARY    // Expression binaire (ex: a + b)
+    INTEGER,      // Littéral entier (ex: 42)
+    VARIABLE,     // Référence à une variable (ex: count)
+    BINARY,       // Expression binaire (ex: a + b)
+    ARRAY,        // Expression de tableau (ex: array[0])
+    ARRAY_ACCESS, // Accès à un élément de tableau (ex: array[0])
+    LENGTH,
+
 };
 
 /**
@@ -66,11 +70,15 @@ enum class ExprType
  */
 enum class StmtType
 {
-    EXIT,  // Instruction exit(expr)
-    LET,   // Affectation let var = expr
-    BLOCK, // Bloc d'instructions
-    IF,    // Instruction conditionnelle if(condition) { ... }
-    ELES,  // Instruction else
+    EXIT,         // Instruction exit(expr)
+    LET,          // Affectation let var = expr
+    BLOCK,        // Bloc d'instructions
+    IF,           // Instruction conditionnelle if(condition) { ... }
+    ELES,         // Instruction else
+    WHILE,        // Instruction de boucle while(condition) { ... }
+    ASSIGN,       // Affectation var = expr
+    PRINT,        // Instruction d'affichage print(expr)
+    ARRAY_ASSIGN, // Affectation d'un élément de tableau array[index] = expr
 };
 
 /**
@@ -137,6 +145,43 @@ struct BinaryExpr : public Expr
         : gauche(gauche), droite(droite), op(op) {}
 
     ExprType getType() const override { return ExprType::BINARY; }
+};
+
+/**
+ * @brief Expression de type tableau (ex: array[0])
+ */
+struct ArrayExpr : public Expr
+{
+    std::vector<std::shared_ptr<Expr>> elements;
+    // Explication :
+    // elements est un vecteur de pointeurs partagés vers des expressions.
+    // Cela signifie que chaque élément du tableau peut être une expression entier, variable, et et oui meme une expression binaire
+    ArrayExpr(std::vector<std::shared_ptr<Expr>> elements) : elements(elements) {}
+    ExprType getType() const override { return ExprType::ARRAY; }
+};
+
+/**
+ * @brief Expression d'accès à un élément de tableau (ex: array[0])
+ */
+struct ArrayAccessExpr : public Expr
+{
+    std::shared_ptr<Expr> array; // pointeur vers le tableau
+    std::shared_ptr<Expr> index; // le nom le dit non
+
+    ArrayAccessExpr(std::shared_ptr<Expr> array, std::shared_ptr<Expr> index)
+        : array(array), index(index) {}
+
+    ExprType getType() const override { return ExprType::ARRAY_ACCESS; }
+};
+
+// len fait une action donc c'est une expr
+struct LengthExpr : public Expr
+{
+    std::shared_ptr<Expr> array;
+
+    LengthExpr(std::shared_ptr<Expr> array) : array(array) {}
+
+    ExprType getType() const override { return ExprType::LENGTH; }
 };
 
 /**
@@ -207,6 +252,46 @@ struct ElseStmt : public Stmt
     StmtType getType() const override { return StmtType::ELES; }
 };
 
+struct WhileStmt : public Stmt
+{
+    std::shared_ptr<Expr> condition;
+    std::shared_ptr<BlockStmt> body;
+
+    WhileStmt(std::shared_ptr<Expr> condition, std::shared_ptr<BlockStmt> body)
+        : condition(condition), body(body) {}
+
+    StmtType getType() const override { return StmtType::WHILE; }
+};
+
+struct AssignStmt : public Stmt
+{
+    Token var;
+    std::shared_ptr<Expr> expr;
+
+    AssignStmt(Token var, std::shared_ptr<Expr> expr) : var(var), expr(expr) {}
+    StmtType getType() const override { return StmtType::ASSIGN; }
+};
+
+struct PrintStmt : public Stmt
+{
+    std::shared_ptr<Expr> expr;
+
+    PrintStmt(std::shared_ptr<Expr> expr) : expr(expr) {}
+    StmtType getType() const override { return StmtType::PRINT; }
+};
+
+struct ArrayAssignStmt : public Stmt
+{
+    std::shared_ptr<Expr> array;
+    std::shared_ptr<Expr> index;
+    std::shared_ptr<Expr> value;
+
+    ArrayAssignStmt(std::shared_ptr<Expr> array, std::shared_ptr<Expr> index, std::shared_ptr<Expr> value)
+        : array(array), index(index), value(value) {}
+
+    StmtType getType() const override { return StmtType::ARRAY_ASSIGN; }
+};
+
 /**
  * @brief Programme complet c'est une liste d'instructions donc vecteur de statements
  */
@@ -273,6 +358,7 @@ private:
      */
     std::optional<std::shared_ptr<Stmt>> parseStatement()
     {
+        // TODO : Commence a grossir donc vaut mieux un switch
         // Analyser le type d'instruction
         if (m_position < m_tokens.size() && m_tokens[m_position].type == TokenType::EXIT)
         {
@@ -289,6 +375,22 @@ private:
         else if (m_position < m_tokens.size() && m_tokens[m_position].type == TokenType::IF)
         {
             return parseIfStmt();
+        }
+        else if (m_position < m_tokens.size() && m_tokens[m_position].type == TokenType::WHILE)
+        {
+            return parseWhileStmt();
+        }
+        else if (m_position < m_tokens.size() && m_tokens[m_position].type == TokenType::IDENTIFIER && m_position + 1 < m_tokens.size() && m_tokens[m_position + 1].type == TokenType::EQUAL)
+        {
+            return parseAssignStmt();
+        }
+        else if (m_position < m_tokens.size() && m_tokens[m_position].type == TokenType::PRINT)
+        {
+            return parsePrintStmt();
+        }
+        else if(m_position < m_tokens.size() && m_tokens[m_position].type == TokenType::IDENTIFIER){
+            return parseArrayAssignStmt();
+        
         }
         else
         {
@@ -431,6 +533,43 @@ private:
         return block;
     }
 
+    std::optional<std::shared_ptr<WhileStmt>> parseWhileStmt()
+    {
+        if (m_position >= m_tokens.size() || m_tokens[m_position].type != TokenType::WHILE)
+        {
+            std::cerr << "Erreur: Un WHILE est attendu" << std::endl;
+            return std::nullopt;
+        }
+        m_position++;
+        // Je verifie si on a une parenthese ouvrante
+        if (m_position >= m_tokens.size() || m_tokens[m_position].type != TokenType::LPARENTHESIS)
+        {
+            std::cerr << "Erreur: Un ( est attendu apres le WHILE" << std::endl;
+            return std::nullopt;
+        }
+        m_position++;
+        // Analyser l'expression
+        auto expr = parseExpression();
+        if (!expr)
+        {
+            return std::nullopt;
+        }
+        // Je vérifie la parenthèse fermante
+        if (m_position >= m_tokens.size() || m_tokens[m_position].type != TokenType::RPARENTHESIS)
+        {
+            std::cerr << "Erreur: Un ) est attendu après l'expression" << std::endl;
+            return std::nullopt;
+        }
+        m_position++;
+        // LE bloc
+        auto block = parseBlockStmt();
+        if (!block)
+        {
+            return std::nullopt;
+        }
+        return std::make_shared<WhileStmt>(expr.value(), block.value());
+    }
+
     /**
      * @brief Analyse les tokens pour produire une instruction let
      * @return std::optional<std::shared_ptr<LetStmt>> L'instruction let ou nullopt en cas d'erreur
@@ -539,6 +678,50 @@ private:
         return left;
     }
 
+    /**
+     * @brief Analyse les tokens pour produire une expression de comparaison
+     * @return std::optional<std::shared_ptr<Expr>> L'expression de comparaison ou nullopt en cas d'erreur
+     * @note Actuellement, seules les égalités sont gérées
+     *       (ex: a == b).
+     */
+    std::optional<std::shared_ptr<Expr>> parseComparison()
+    {
+        auto left = parseAddition();
+        if (!left)
+            return std::nullopt;
+
+        while (m_position < m_tokens.size() && (m_tokens[m_position].type == TokenType::EGAL || m_tokens[m_position].type == TokenType::GREAT || m_tokens[m_position].type == TokenType::LESS || m_tokens[m_position].type == TokenType::GREAT_EQUAL || m_tokens[m_position].type == TokenType::LESS_EQUAL || m_tokens[m_position].type == TokenType::NEGAL))
+        {
+            TokenType operatorType = m_tokens[m_position].type;
+            m_position++;
+            BinaryOpType binaryOpType;
+            if (operatorType == TokenType::EGAL)
+                binaryOpType = BinaryOpType::EQUAL;
+            else if (operatorType == TokenType::GREAT)
+                binaryOpType = BinaryOpType::GREAT;
+            else if (operatorType == TokenType::LESS)
+                binaryOpType = BinaryOpType::LESS;
+            else if (operatorType == TokenType::GREAT_EQUAL)
+                binaryOpType = BinaryOpType::GREAT_EQUAL;
+            else if (operatorType == TokenType::LESS_EQUAL)
+                binaryOpType = BinaryOpType::LESS_EQUAL;
+            else if (operatorType == TokenType::NEGAL)
+                binaryOpType = BinaryOpType::NOT_EQUAL;
+            else
+            {
+                std::cerr << "Erreur: Opérateur de comparaison non reconnu" << std::endl;
+                return std::nullopt;
+            }
+            auto right = parseAddition();
+            if (!right)
+                return std::nullopt;
+
+            left = std::make_shared<BinaryExpr>(left.value(), binaryOpType, right.value());
+        }
+
+        return left;
+    }
+
     std::optional<std::shared_ptr<Expr>> parseLogicalConAND()
     {
         auto left = parseComparison();
@@ -616,72 +799,83 @@ private:
     }
 
     /**
-     * @brief Analyse les tokens pour produire une expression de comparaison
-     * @return std::optional<std::shared_ptr<Expr>> L'expression de comparaison ou nullopt en cas d'erreur
-     * @note Actuellement, seules les égalités sont gérées
-     *       (ex: a == b).
-     */
-    std::optional<std::shared_ptr<Expr>> parseComparison()
-    {
-        auto left = parseAddition();
-        if (!left)
-            return std::nullopt;
-
-        while (m_position < m_tokens.size() && (m_tokens[m_position].type == TokenType::EGAL || m_tokens[m_position].type == TokenType::GREAT || m_tokens[m_position].type == TokenType::LESS || m_tokens[m_position].type == TokenType::GREAT_EQUAL || m_tokens[m_position].type == TokenType::LESS_EQUAL || m_tokens[m_position].type == TokenType::NEGAL))
-        {
-            TokenType operatorType = m_tokens[m_position].type;
-            m_position++;
-            BinaryOpType binaryOpType;
-            if (operatorType == TokenType::EGAL)
-                binaryOpType = BinaryOpType::EQUAL;
-            else if (operatorType == TokenType::GREAT)
-                binaryOpType = BinaryOpType::GREAT;
-            else if (operatorType == TokenType::LESS)
-                binaryOpType = BinaryOpType::LESS;
-            else if (operatorType == TokenType::GREAT_EQUAL)
-                binaryOpType = BinaryOpType::GREAT_EQUAL;
-            else if (operatorType == TokenType::LESS_EQUAL)
-                binaryOpType = BinaryOpType::LESS_EQUAL;
-            else if (operatorType == TokenType::NEGAL)
-                binaryOpType = BinaryOpType::NOT_EQUAL;
-            else
-            {
-                std::cerr << "Erreur: Opérateur de comparaison non reconnu" << std::endl;
-                return std::nullopt;
-            }
-            auto right = parseAddition();
-            if (!right)
-                return std::nullopt;
-
-            left = std::make_shared<BinaryExpr>(left.value(), binaryOpType, right.value());
-        }
-
-        return left;
-    }
-
-    /**
      * @brief Analyse les tokens pour produire une expression entre parenthèses
      * @return std::optional<std::shared_ptr<Expr>> L'expression ou nullopt en cas d'erreur
+     * exemple: (a + b) ou [1, 2, 3]
      */
     std::optional<std::shared_ptr<Expr>> parseSemiParenth()
     {
         if (m_position < m_tokens.size())
         {
-            if (m_tokens[m_position].type == TokenType::INT_LITERAL)
+            if (m_tokens[m_position].type == TokenType::LBRACKET)
+            {
+                return parseArray();
+            }
+            // Cas d'un entier
+            else if (m_tokens[m_position].type == TokenType::INT_LITERAL)
             {
                 auto intExpr = std::make_shared<IntExpr>(m_tokens[m_position]);
                 m_position++;
                 return intExpr;
             }
+            // Cas d'une variable ou accès à un tableau
             else if (m_tokens[m_position].type == TokenType::IDENTIFIER)
             {
                 auto varExpr = std::make_shared<VarExpr>(m_tokens[m_position]);
                 m_position++;
+
+                // Vérifier si on a un accès à un tableau: arr[index]
+                if (m_position < m_tokens.size() && m_tokens[m_position].type == TokenType::LBRACKET)
+                {
+                    m_position++; // Consommer le '['
+
+                    auto indexExpr = parseExpression();
+                    if (!indexExpr)
+                        return std::nullopt;
+
+                    if (m_position >= m_tokens.size() || m_tokens[m_position].type != TokenType::RBRACKET)
+                    {
+                        std::cerr << "Erreur: Un ']' est attendu" << std::endl;
+                        return std::nullopt;
+                    }
+
+                    m_position++; // Consommer le ']'
+                    return std::make_shared<ArrayAccessExpr>(varExpr, indexExpr.value());
+                }
+
                 return varExpr;
             }
+            else if (m_tokens[m_position].type == TokenType::LENGTH)
+            {
+                m_position++; // Consommer 'len'
+
+                // Vérifier la parenthèse ouvrante
+                if (m_position >= m_tokens.size() || m_tokens[m_position].type != TokenType::LPARENTHESIS)
+                {
+                    std::cerr << "Erreur: Un ( est attendu après len" << std::endl;
+                    return std::nullopt;
+                }
+                m_position++; // Consommer '('
+
+                // Parser l'expression du tableau
+                auto arrayExpr = parseExpression();
+                if (!arrayExpr)
+                    return std::nullopt;
+
+                // Vérifier la parenthèse fermante
+                if (m_position >= m_tokens.size() || m_tokens[m_position].type != TokenType::RPARENTHESIS)
+                {
+                    std::cerr << "Erreur: Un ) est attendu après l'argument de len()" << std::endl;
+                    return std::nullopt;
+                }
+                m_position++; // Consommer ')'
+
+                return std::make_shared<LengthExpr>(arrayExpr.value());
+            }
+            // Cas d'une expression entre parenthèses
             else if (m_tokens[m_position].type == TokenType::LPARENTHESIS)
             {
-                m_position++; //  je skip '('
+                m_position++; // Consommer '('
                 auto expr = parseExpression();
                 if (!expr)
                     return std::nullopt;
@@ -691,13 +885,231 @@ private:
                     std::cerr << "Erreur: Un ) est attendu" << std::endl;
                     return std::nullopt;
                 }
-                m_position++; // je skip ')'
+                m_position++; // Consommer ')'
                 return expr;
             }
         }
 
         std::cerr << "Erreur: Expression attendue" << std::endl;
         return std::nullopt;
+    }
+
+    std::optional<std::shared_ptr<Expr>> parseArray()
+    {
+        // Vérifier et consommer le crochet ouvrant '['
+        if (m_position >= m_tokens.size() || m_tokens[m_position].type != TokenType::LBRACKET)
+        {
+            std::cerr << "Erreur: Un [ est attendu" << std::endl;
+            return std::nullopt;
+        }
+        m_position++; // Consommer '['
+
+        std::vector<std::shared_ptr<Expr>> elements;
+
+        // Cas du tableau vide []
+        if (m_position < m_tokens.size() && m_tokens[m_position].type == TokenType::RBRACKET)
+        {
+            m_position++; // Consommer ']'
+            return std::make_shared<ArrayExpr>(elements);
+        }
+
+        // Parser les éléments du tableau
+        while (true)
+        {
+            // Parser un élément
+            auto expr = parseExpression();
+            if (!expr)
+                return std::nullopt;
+
+            elements.push_back(expr.value());
+
+            // Vérifier si on a atteint la fin du tableau
+            if (m_position >= m_tokens.size())
+            {
+                std::cerr << "Erreur: Fin de fichier inattendue dans la déclaration du tableau" << std::endl;
+                return std::nullopt;
+            }
+
+            // Si on trouve ']', c'est la fin du tableau
+            if (m_tokens[m_position].type == TokenType::RBRACKET)
+            {
+                m_position++; // Consommer ']'
+                break;
+            }
+
+            // Sinon, on doit avoir une virgule
+            if (m_tokens[m_position].type != TokenType::COMMA)
+            {
+                std::cerr << "Erreur: Une virgule est attendue entre les éléments du tableau" << std::endl;
+                return std::nullopt;
+            }
+            m_position++; // Consommer ','
+        }
+
+        return std::make_shared<ArrayExpr>(elements);
+    }
+
+    std::optional<std::shared_ptr<AssignStmt>> parseAssignStmt()
+    {
+        if (m_position >= m_tokens.size() || m_tokens[m_position].type != TokenType::IDENTIFIER)
+        {
+            std::cerr << "Erreur: Un IDENTIFIER est attendu" << std::endl;
+            return std::nullopt;
+        }
+        auto var = m_tokens[m_position];
+        m_position++;
+        // Vérifier le signe égal
+        if (m_position >= m_tokens.size() || m_tokens[m_position].type != TokenType::EQUAL)
+        {
+            std::cerr << "Erreur: Un = est attendu avant " << std::endl;
+            return std::nullopt;
+        }
+        m_position++;
+        // Analyser l'expression
+        auto expr = parseExpression();
+        if (!expr)
+        {
+            return std::nullopt;
+        }
+        // Vérifier le point-virgule
+        if (m_position >= m_tokens.size() || m_tokens[m_position].type != TokenType::SEMICOLON)
+        {
+            std::cerr << "Erreur: Un ; est attendu à la fin de l'instruction" << std::endl;
+            return std::nullopt;
+        }
+        m_position++;
+        return std::make_shared<AssignStmt>(var, expr.value());
+    }
+
+    std::optional<std::shared_ptr<PrintStmt>> parsePrintStmt()
+    {
+        if (m_position >= m_tokens.size() || m_tokens[m_position].type != TokenType::PRINT)
+        {
+            std::cerr << "Erreur: Un PRINT est attendu" << std::endl;
+            return std::nullopt;
+        }
+        m_position++;
+        // parenthese ouvrante (
+        if (m_position >= m_tokens.size() || m_tokens[m_position].type != TokenType::LPARENTHESIS)
+        {
+            std::cerr << "Erreur: Un ( est attendu après le PRINT" << std::endl;
+            return std::nullopt;
+        }
+        m_position++;
+        // Analyser l'expression
+        auto expr = parseExpression();
+        if (!expr)
+        {
+            return std::nullopt;
+        }
+        // parenthese fermante )
+        if (m_position >= m_tokens.size() || m_tokens[m_position].type != TokenType::RPARENTHESIS)
+        {
+            std::cerr << "Erreur: Un ) est attendu après l'expression" << std::endl;
+            return std::nullopt;
+        }
+        m_position++;
+        // Vérifier le point-virgule
+        if (m_position >= m_tokens.size() || m_tokens[m_position].type != TokenType::SEMICOLON)
+        {
+            std::cerr << "Erreur: Un ; est attendu à la fin de l'instruction" << std::endl;
+            return std::nullopt;
+        }
+        m_position++;
+        return std::make_shared<PrintStmt>(expr.value());
+    }
+
+    std::optional<std::shared_ptr<Expr>> parseLengthExpr()
+    {
+        if (m_position >= m_tokens.size() || m_tokens[m_position].type != TokenType::LENGTH)
+            return std::nullopt;
+        m_position++;
+
+        // Vérifier (
+        if (m_position >= m_tokens.size() || m_tokens[m_position].type != TokenType::LPARENTHESIS)
+        {
+            std::cerr << "Erreur: Un ( est attendu après len" << std::endl;
+            return std::nullopt;
+        }
+        m_position++;
+
+        auto arrayExpr = parseExpression();
+        if (!arrayExpr)
+            return std::nullopt;
+
+        // Vérifier )
+        if (m_position >= m_tokens.size() || m_tokens[m_position].type != TokenType::RPARENTHESIS)
+        {
+            std::cerr << "Erreur: Un ) est attendu" << std::endl;
+            return std::nullopt;
+        }
+        m_position++;
+
+        return std::make_shared<LengthExpr>(arrayExpr.value());
+    }
+
+    std::optional<std::shared_ptr<ArrayAssignStmt>> parseArrayAssignStmt()
+    {
+        // Sauvegarder la position pour pouvoir revenir en back back
+        size_t startPos = m_position;
+
+        // Parser l'identifiant du tableau
+        if (m_position >= m_tokens.size() || m_tokens[m_position].type != TokenType::IDENTIFIER)
+            return std::nullopt;
+
+        Token arrayToken = m_tokens[m_position];
+        auto array = std::make_shared<VarExpr>(arrayToken);
+        m_position++;
+
+        // Vérifier le crochet ouvrant
+        if (m_position >= m_tokens.size() || m_tokens[m_position].type != TokenType::LBRACKET)
+        {
+            m_position = startPos;
+            return std::nullopt;
+        }
+        m_position++;
+
+        // Parser l'indice
+        auto index = parseExpression();
+        if (!index)
+        {
+            m_position = startPos;
+            return std::nullopt;
+        }
+
+        // Vérifier le crochet fermant ] je suis pas sûr du nom
+        if (m_position >= m_tokens.size() || m_tokens[m_position].type != TokenType::RBRACKET)
+        {
+            m_position = startPos;
+            return std::nullopt;
+        }
+        m_position++;
+
+        // Vérifier le signe égal
+        if (m_position >= m_tokens.size() || m_tokens[m_position].type != TokenType::EQUAL)
+        {
+            m_position = startPos;
+            return std::nullopt;
+        }
+        m_position++;
+
+        // Parser la valeur à assigner
+        auto value = parseExpression();
+        if (!value)
+        {
+            m_position = startPos;
+            return std::nullopt;
+        }
+
+        // Vérifier le point-virgule
+        if (m_position >= m_tokens.size() || m_tokens[m_position].type != TokenType::SEMICOLON)
+        {
+            std::cerr << "Erreur: Un ; est attendu après l'assignation" << std::endl;
+            return std::nullopt;
+        }
+        m_position++;
+
+        return std::make_shared<ArrayAssignStmt>(array, index.value(), value.value());
     }
 
     std::vector<Token> m_tokens; ///< Vecteur des tokens à analyser
