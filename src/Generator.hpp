@@ -189,6 +189,26 @@ private:
                     assembly << "    sete al\n";       // Mettre 1 si égal, sinon 0
                     assembly << "    movzx rax, al\n"; // Étendre le résultat à 64 bits
                     break;
+                case BinaryOpType::GREAT:
+                    assembly << "    cmp rax, rbx\n"; // Comparer les deux valeurs
+                    assembly << "    setg al\n";       // Mettre 1 si rax > rbx, sinon 0
+                    assembly << "    movzx rax, al\n"; // Étendre le résultat à 64 bits
+                    break;
+                case BinaryOpType::LESS:
+                    assembly << "    cmp rax, rbx\n"; // Comparer les deux valeurs
+                    assembly << "    setl al\n";       // Mettre 1 si rax < rbx, sinon 0
+                    assembly << "    movzx rax, al\n"; // Étendre le résultat à 64 bits
+                    break;
+                case BinaryOpType::GREAT_EQUAL:
+                    assembly << "    cmp rax, rbx\n"; // Comparer les deux valeurs
+                    assembly << "    setge al\n";      // Mettre 1 si rax >= rbx, sinon 0
+                    assembly << "    movzx rax, al\n"; // Étendre le résultat à 64 bits
+                    break;
+                case BinaryOpType::LESS_EQUAL:
+                    assembly << "    cmp rax, rbx\n"; // Comparer les deux valeurs
+                    assembly << "    setle al\n";      // Mettre 1 si rax <= rbx, sinon 0
+                    assembly << "    movzx rax, al\n"; // Étendre le résultat à 64 bits
+                    break;
                 }
             }
             break;
@@ -308,6 +328,7 @@ private:
 
         // Générer un label unique pour le saut
         static int labelCounter = 0;
+        std::string elseLabel = ".if_else_" + std::to_string(labelCounter);
         std::string endLabel = ".if_end_" + std::to_string(labelCounter++);
 
         assembly << "    ; Début du if\n";
@@ -316,9 +337,27 @@ private:
         generateExpressionCode(ifStmt->condition, assembly, symbolTables);
 
         assembly << "    cmp rax, 0\n";
-        assembly << "    je " << endLabel << "\n";
+        if(ifStmt->elseBranch)
+        {
+            assembly << "    je " << elseLabel << "\n";
+        }
+        else
+        {
+            assembly << "    je " << endLabel << "\n";
+        }
 
         generateBlockCode(ifStmt->thenBranch.get(), assembly, symbolTables, stackOffset);
+
+        if(ifStmt->elseBranch)
+        {
+            assembly << "    jmp " << elseLabel << "\n";
+        }
+        // Le Bloc else
+        if (ifStmt->elseBranch)
+        {
+            assembly << elseLabel << ":\n";
+            generateBlockCode(ifStmt->elseBranch.get(), assembly, symbolTables, stackOffset);
+        }
 
         // Label pour la fin du if
         assembly << endLabel << ":\n";

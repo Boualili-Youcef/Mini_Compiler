@@ -40,6 +40,11 @@ enum class TokenType
     RBRACE,       /**< Accolade droite '}' */
     IF,           /**< Mot clé 'if' */
     EGAL,         /**< Signe égal '==' */
+    GREAT,        /**< Signe supérieur '>' */
+    LESS,         /**< Signe inférieur '<' */
+    GREAT_EQUAL,  /**< Signe supérieur ou égal '>=' */
+    LESS_EQUAL,   /**< Signe inférieur ou égal '<=' */
+    ELSE,         /**< Mot clé 'else' */
     UNKNOWN       /**< Token non reconnu */
 };
 
@@ -80,7 +85,8 @@ public:
         const std::unordered_map<std::string, TokenType> keywords = {
             {"exit", TokenType::EXIT},
             {"let", TokenType::LET},
-            {"if", TokenType::IF}};
+            {"if", TokenType::IF},
+            {"else", TokenType::ELSE}};
         std::vector<Token> tokens;
         int position = 0;
         while (position < m_input.size())
@@ -141,6 +147,37 @@ public:
                 continue;
             }
 
+            // ici c'est >=
+            if (m_input[position] == '>' && position + 1 < m_input.size() && m_input[position + 1] == '=')
+            {
+                tokens.push_back({TokenType::GREAT_EQUAL, ">="});
+                position += 2;
+                continue;
+            }
+
+            // ici c'est <=
+            if (m_input[position] == '<' && position + 1 < m_input.size() && m_input[position + 1] == '=')
+            {
+                tokens.push_back({TokenType::LESS_EQUAL, "<="});
+                position += 2;
+                continue;
+            }
+
+            // ici c'est >
+            if (m_input[position] == '>')
+            {
+                tokens.push_back({TokenType::GREAT, ">"});
+                position++;
+                continue;
+            }
+
+            // ici c'est <
+            if (m_input[position] == '<')
+            {
+                tokens.push_back({TokenType::LESS, "<"});
+                position++;
+                continue;
+            }
             // ici c'est =
             if (m_input[position] == '=')
             {

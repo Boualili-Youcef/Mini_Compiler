@@ -1,10 +1,10 @@
 let x = 10;
 let y = 5;
-if(x == 5+y){
-    let x = 52;
-    if(x == 55 ){
-        exit(52);
-    }
+if(x < 2*y - 2){
     exit(69);
+}
+else if(1 > 1)
+{
+    exit(52);
 }
 exit(x); 

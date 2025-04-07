@@ -82,6 +82,7 @@ The script will:
 - Add support for variables and assignments (DONE ✔️)
 - Implement arithmetic expressions (Done ✔️)
 - Add scopes { } (Done ✔️)
-- Add control flow statements (if/else, loops)
+- Add control flow statements (if/else, loops) (Added the if(){}/ if {}else{ } / if(){}else if(){} else{})
 - Expand the language syntax
+- Need to make some testes
 - OOP (if I have time)

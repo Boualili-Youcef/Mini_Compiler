@@ -10,30 +10,39 @@ _start:
     sub rsp, 8
     mov [rbp-16], rax
     ; Début du if
+    mov rax, 2
+    push rax
     mov rax, [rbp-16]
     push rax
-    mov rax, 5
+    mov rax, 2
     pop rbx
-    add rax, rbx
+    imul rax, rbx
+    pop rbx
+    sub rax, rbx
     push rax
     mov rax, [rbp-8]
     pop rbx
     cmp rax, rbx
-    sete al
+    setl al
     movzx rax, al
     cmp rax, 0
-    je .if_end_0
+    je .if_else_0
     ; Début de bloc
-    mov rax, 52
-    sub rsp, 8
-    mov [rbp-24], rax
+    mov rax, 69
+    mov rdi, rax
+    mov rax, 60
+    syscall
+    ; Fin de bloc
+    jmp .if_else_0
+.if_else_0:
+    ; Début de bloc
     ; Début du if
-    mov rax, 55
+    mov rax, 1
     push rax
-    mov rax, [rbp-24]
+    mov rax, 1
     pop rbx
     cmp rax, rbx
-    sete al
+    setg al
     movzx rax, al
     cmp rax, 0
     je .if_end_1
@@ -45,11 +54,6 @@ _start:
     ; Fin de bloc
 .if_end_1:
     ; Fin du if
-    mov rax, 69
-    mov rdi, rax
-    mov rax, 60
-    syscall
-    add rsp, 8
     ; Fin de bloc
 .if_end_0:
     ; Fin du if

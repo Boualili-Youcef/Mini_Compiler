@@ -69,7 +69,8 @@ enum class StmtType
     EXIT,  // Instruction exit(expr)
     LET,   // Affectation let var = expr
     BLOCK, // Bloc d'instructions
-    IF     // Instruction conditionnelle if(condition) { ... }
+    IF,    // Instruction conditionnelle if(condition) { ... }
+    ELES,  // Instruction else
 };
 
 /**
@@ -83,6 +84,10 @@ enum class BinaryOpType
     DIV,
     MOD,
     EQUAL,
+    GREAT,
+    LESS,
+    GREAT_EQUAL,
+    LESS_EQUAL
 };
 
 /**
@@ -182,11 +187,21 @@ struct IfStmt : public Stmt
 {
     std::shared_ptr<Expr> condition;
     std::shared_ptr<BlockStmt> thenBranch;
+    std::shared_ptr<BlockStmt> elseBranch;
 
-    IfStmt(std::shared_ptr<Expr> condition, std::shared_ptr<BlockStmt> thenBranch)
-        : condition(condition), thenBranch(thenBranch) {}
+    IfStmt(std::shared_ptr<Expr> condition, std::shared_ptr<BlockStmt> thenBranch, std::shared_ptr<BlockStmt> elseBranch = nullptr)
+        : condition(condition), thenBranch(thenBranch), elseBranch(elseBranch) {}
 
     StmtType getType() const override { return StmtType::IF; }
+};
+
+struct ElseStmt : public Stmt
+{
+    std::shared_ptr<BlockStmt> elseBranch;
+
+    ElseStmt(std::shared_ptr<BlockStmt> elseBranch) : elseBranch(elseBranch) {}
+
+    StmtType getType() const override { return StmtType::ELES; }
 };
 
 /**
@@ -366,7 +381,51 @@ private:
         {
             return std::nullopt;
         }
+
+        // Je verifie si on a un else
+        if (m_position < m_tokens.size() && m_tokens[m_position].type == TokenType::ELSE)
+        {
+            auto elseStmt = parseElseStmt();
+            if (!elseStmt)
+            {
+                return std::nullopt;
+            }
+            return std::make_shared<IfStmt>(expr.value(), block.value(), elseStmt.value());
+        }
+
         return std::make_shared<IfStmt>(expr.value(), block.value());
+    }
+
+    /**
+     * @brief Analyse les tokens pour produire une instruction else
+     * @return std::optional<std::shared_ptr<ElseStmt>> L'instruction else ou nullopt en cas d'erreur
+     */
+    std::optional<std::shared_ptr<BlockStmt>> parseElseStmt()
+    {
+        if (m_position >= m_tokens.size() || m_tokens[m_position].type != TokenType::ELSE)
+        {
+            std::cerr << "Erreur: Un ELSE est attendu" << std::endl;
+            return std::nullopt;
+        }
+        m_position++;
+        if (m_position < m_tokens.size() && m_tokens[m_position].type == TokenType::IF)
+        {
+            auto ifStmt = parseIfStmt();
+            if (!ifStmt)
+            {
+                return std::nullopt;
+            }
+            std::vector<std::shared_ptr<Stmt>> statements;
+            statements.push_back(ifStmt.value());
+            return std::make_shared<BlockStmt>(statements);
+        }
+        // Vérifier le bloc
+        auto block = parseBlockStmt();
+        if (!block)
+        {
+            return std::nullopt;
+        }
+        return block;
     }
 
     /**
@@ -423,7 +482,7 @@ private:
         // On vérifie si on a un '{'
         if (m_position >= m_tokens.size() || m_tokens[m_position].type != TokenType::LBRACE)
         {
-            std::cerr << "Erreur: Un { est attendu" << std::endl;
+            std::cerr << "Erreur: Un { est attendu a " << m_position << std::endl;
             return std::nullopt;
         }
         // hop on récupere toutes les instructions entre les accolades
@@ -458,6 +517,10 @@ private:
         return parseComparison();
     }
 
+    /**
+     * @brief Analyse les tokens pour produire une expression d'addition
+     * @return std::optional<std::shared_ptr<Expr>> L'expression d'addition ou nullopt en cas d'erreur
+     */
     std::optional<std::shared_ptr<Expr>> parseAddition()
     {
         auto left = parseMultiplication();
@@ -483,6 +546,11 @@ private:
         return left;
     }
 
+    /**
+     * @brief Analyse les tokens pour produire une expression de multiplication
+     * @return std::optional<std::shared_ptr<Expr>> L'expression de multiplication ou nullopt en cas d'erreur
+     */
+
     std::optional<std::shared_ptr<Expr>> parseMultiplication()
     {
         auto left = parseSemiParenth();
@@ -506,7 +574,6 @@ private:
         return left;
     }
 
-
     /**
      * @brief Analyse les tokens pour produire une expression de comparaison
      * @return std::optional<std::shared_ptr<Expr>> L'expression de comparaison ou nullopt en cas d'erreur
@@ -519,19 +586,35 @@ private:
         if (!left)
             return std::nullopt;
 
-        while (m_position < m_tokens.size() && m_tokens[m_position].type == TokenType::EGAL)
+        while (m_position < m_tokens.size() && (m_tokens[m_position].type == TokenType::EGAL || m_tokens[m_position].type == TokenType::GREAT || m_tokens[m_position].type == TokenType::LESS || m_tokens[m_position].type == TokenType::GREAT_EQUAL || m_tokens[m_position].type == TokenType::LESS_EQUAL))
         {
+            TokenType operatorType = m_tokens[m_position].type;
             m_position++;
+            BinaryOpType binaryOpType;
+            if (operatorType == TokenType::EGAL)
+                binaryOpType = BinaryOpType::EQUAL;
+            else if (operatorType == TokenType::GREAT)
+                binaryOpType = BinaryOpType::GREAT;
+            else if (operatorType == TokenType::LESS)
+                binaryOpType = BinaryOpType::LESS;
+            else if (operatorType == TokenType::GREAT_EQUAL)
+                binaryOpType = BinaryOpType::GREAT_EQUAL;
+            else if (operatorType == TokenType::LESS_EQUAL)
+                binaryOpType = BinaryOpType::LESS_EQUAL;
             auto right = parseAddition();
             if (!right)
                 return std::nullopt;
 
-            left = std::make_shared<BinaryExpr>(left.value(), BinaryOpType::EQUAL, right.value());
+            left = std::make_shared<BinaryExpr>(left.value(), binaryOpType, right.value());
         }
 
         return left;
     }
 
+    /**
+     * @brief Analyse les tokens pour produire une expression entre parenthèses
+     * @return std::optional<std::shared_ptr<Expr>> L'expression ou nullopt en cas d'erreur
+     */
     std::optional<std::shared_ptr<Expr>> parseSemiParenth()
     {
         if (m_position < m_tokens.size())

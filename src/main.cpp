@@ -48,6 +48,16 @@ std::string toString(TokenType type)
         return "IF";
     case TokenType::EGAL:
         return "Egalité";
+    case TokenType::GREAT:
+        return "GREAT";
+    case TokenType::LESS:
+        return "LESS";
+    case TokenType::GREAT_EQUAL:
+        return "GREAT_EQUAL";
+    case TokenType::LESS_EQUAL:
+        return "LESS_EQUAL";
+    case TokenType::ELSE:
+        return "ELSE";
     default:
         return "UNKNOWN";
     }
