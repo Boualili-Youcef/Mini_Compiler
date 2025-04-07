@@ -73,16 +73,28 @@ The script will:
 
 ## Current Limitations
 
-- Only supports "exit" statements with integer literals
-- Error handling is minimal
-- No support for variables, expressions, or control flow
+- Limited language features (see implemented features below)
+- Basic error handling and reporting
+- No optimization passes
+- Single-file compilation only
 
-## Future Plans
+## Project Roadmap
 
-- Add support for variables and assignments (DONE ✔️)
-- Implement arithmetic expressions (Done ✔️)
-- Add scopes { } (Done ✔️)
-- Add control flow statements (if/else, loops) (Added the if(){}/ if {}else{ } / if(){}else if(){} else{})
-- Expand the language syntax
-- Need to make some testes
-- OOP (if I have time)
+### Implemented Features
+- ✅ Variables and assignment operations
+- ✅ Arithmetic expressions and operators
+- ✅ Code blocks and scoping
+- ✅ Basic control flow (if/else, if/else if/else statements)
+
+### In Progress
+- 🔄 Additional control structures (loops, switch statements)
+
+### Planned Features
+- ⏳ Function definitions and calls
+- ⏳ Arrays and complex data structures
+- ⏳ String manipulation
+- ⏳ Standard library implementation
+- ⏳ Error recovery and better diagnostics
+- ⏳ Object-oriented programming features
+- ⏳ Basic optimizations
+
