@@ -10,7 +10,7 @@ This project implements a full-featured compiler with lexical analysis, syntacti
 
 Here's a sample program that demonstrates the compiler's capabilities:
 
-![Code Sample](MyCode.png)
+![Code Sample](./img/MyCode.png)
 
 ## Features
 
@@ -63,7 +63,7 @@ make
 
 Here's a demonstration of the compiler in action:
 
-![Compiler Demo](demo.gif)
+![Compiler Demo](./img/Enregistrementdelcran2025-04-07215333-ezgif.com-video-to-gif-converter%20(1).gif)
 
 ## Output
 
