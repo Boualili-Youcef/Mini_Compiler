@@ -3,3 +3,6 @@ build
 *.o
 *.exe
 *.bin
+docs/doxygen/html/
+build_asm
+bin
