@@ -4,5 +4,3 @@ build
 *.exe
 *.bin
 docs/doxygen/html/
-build_asm
-bin
